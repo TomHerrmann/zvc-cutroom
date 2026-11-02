@@ -18,6 +18,7 @@ change, and a log of cost, latency and pass rates for every run.
 | 3. Resolve Studio render (scripting API, Smart Reframe, styled subtitles) | not started |
 | 4. Approval queue + metrics feedback into the ranker | not started |
 | 5. Portfolio polish: demo video, published eval results | not started |
+| Stretch: long-form 4K YouTube edits from raw footage, built with an agent ([plan](docs/longform.md)) | planned |
 
 The only eval set today is `synthetic_smoke`: an invented transcript with one hand-written case
 per guardrail. It proves the validators work; it says nothing yet about clip quality.
