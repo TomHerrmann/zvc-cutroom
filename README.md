@@ -23,6 +23,10 @@ change, and a log of cost, latency and pass rates for every run.
 The only eval set today is `synthetic_smoke`: an invented transcript with one hand-written case
 per guardrail. It proves the validators work; it says nothing yet about clip quality.
 
+The pilot uses an older ZVC episode downloaded from YouTube Studio (the original raw files are
+gone). That copy is lower resolution, so it is used for transcript and selection work only; any
+render shown as a finished 4K or 1080p deliverable comes from full-quality source footage.
+
 ## Pipeline
 
 ```
