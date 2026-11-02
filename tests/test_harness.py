@@ -211,7 +211,8 @@ def test_unverified_words_are_never_auto_applied(tmp_path):
     assert [i.code for i in issues] == ["FLAG_NOT_IN_CUE"]
 
     ctx = subtitles.flag_context(t, 1, "riddley scot")
-    assert ctx["sentence"] == "we watched blade runner by riddley scot"
+    # no end punctuation between the cues, so they read as one sentence
+    assert ctx["sentence"] == "Hello there we watched blade runner by riddley scot"
     assert "riddley scot" in subtitles.questions_markdown(t, review)
 
     answered, issues = subtitles.apply_answers(
