@@ -184,3 +184,10 @@ def test_audio_map_edges_and_youtube_only(good_clip, transcript, rules):
     late = good_clip.model_copy(update={"segments": [ClipSegment(start=40.0, end=62.0)]})
     assert "CUT_MID_SPEECH" in validate_clip(late, transcript, rules, video=video).error_codes
     assert video.snap(64.3) == 64.6
+
+
+def test_end_card_defaults_loaded(rules):
+    ec = rules.end_card
+    assert ec.title == "ZVC Topic Label Slam"
+    assert ec.topic_title == "FULL VIDEO ON YOUTUBE"
+    assert (ec.seconds, ec.transition_in, ec.only_when_long_review) == (3.0, "wipe", True)

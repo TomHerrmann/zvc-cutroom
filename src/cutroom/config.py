@@ -71,6 +71,16 @@ class SubtitleRules(_Cfg):
     max_chars_per_line: dict[Format, int]
 
 
+class EndCardRules(_Cfg):
+    title: str
+    template_comp: str
+    topic_title: str
+    label: str | None = None
+    seconds: float = Field(gt=0)
+    transition_in: Literal["cut", "wipe"] = "wipe"
+    only_when_long_review: bool = True
+
+
 class BrandRules(_Cfg):
     brand: str
     version: int
@@ -81,6 +91,7 @@ class BrandRules(_Cfg):
     hashtags: HashtagRules
     formats: dict[Format, FormatRules]
     subtitles: SubtitleRules
+    end_card: EndCardRules | None = None
     # Set by load_rules; not part of the YAML.
     config_hash: str | None = None
 

@@ -71,3 +71,16 @@ subtitles:
   max_chars_per_line:            # DRAFT
     vertical: 24
     wide: 42
+
+# Vertical clips that come from a longer YouTube review end on the ZVC Topic Label Slam
+# instead of a spoken "let me know what you think". The comp is the edited version saved
+# from Resolve (cutroom-review/templates/ on the editing machine); it replaces the library
+# default whenever the pipeline inserts the title.
+end_card:
+  title: ZVC Topic Label Slam
+  template_comp: templates/zvc-topic-label-slam.comp
+  topic_title: FULL VIDEO ON YOUTUBE
+  label: ZERO VISION CINEMA
+  seconds: 3.0
+  transition_in: wipe
+  only_when_long_review: true
