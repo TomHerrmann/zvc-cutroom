@@ -140,6 +140,9 @@ class VideoContext(_Model):
     silences: list[tuple[float, float]] = Field(default_factory=list)
     # Ranges that only belong in the long-form YouTube video (title card, sponsor reads).
     youtube_only: list[tuple[float, float]] = Field(default_factory=list)
+    # Where the longer YouTube review lives (URL or title). Set it and clips must end on
+    # the end card pointing to it.
+    long_review: str | None = None
 
     def in_silence(self, t: float, slack: float = 0.03) -> bool:
         return any(a - slack <= t <= b + slack for a, b in self.silences)
@@ -181,6 +184,9 @@ class ClipProposal(_Model):
     quotes: list[QuoteRef] = Field(default_factory=list)
     cta: CTA | None = None
     covers: list[CoverCandidate] = Field(default_factory=list)
+    # Topic Title text on the closing ZVC title card, e.g. "FULL VIDEO ON YOUTUBE".
+    # Plays after the last segment; its length comes from the brand rules.
+    end_card: str | None = None
     width: int = 1080
     height: int = 1920
     captions: CaptionMode = CaptionMode.BURNED_IN

@@ -9,10 +9,11 @@ from __future__ import annotations
 from ..config import BrandRules
 from ..schemas import ClipProposal, Transcript, ValidationReport, VideoContext
 from .brand import check_brand
+from .outro import check_outro
 from .quotes import check_quotes
 from .timestamps import check_timestamps
 
-__all__ = ["validate_clip", "check_brand", "check_quotes", "check_timestamps"]
+__all__ = ["validate_clip", "check_brand", "check_outro", "check_quotes", "check_timestamps"]
 
 
 def validate_clip(
@@ -26,4 +27,5 @@ def validate_clip(
     issues += check_timestamps(clip, transcript, rules, video)
     issues += check_quotes(clip, transcript, rules)
     issues += check_brand(clip, rules, extra_spoilers or [])
+    issues += check_outro(clip, transcript, rules, video)
     return ValidationReport(clip_id=clip.id, issues=issues)

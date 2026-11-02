@@ -54,6 +54,13 @@ def seg(first: float, last_end: float):
     next_start = min((s.start for s in cues if s.start >= last_end - 0.01), default=t.duration)
     start = max(start, prev_end + 0.02)  # never pick up the tail of the previous line
     end = min(end, next_start - 0.02)  # never pick up the start of the next line
+    if not v.in_silence(end):
+        # SRT line times are estimates: if the real pause sits just past the line boundary,
+        # end inside it instead of mid-word.
+        near = [(a, b) for a, b in v.silences if b >= end and a <= end + 0.3]
+        if near:
+            a, b = near[0]
+            end = round(min(a + 0.1, (a + b) / 2), 3)
     for a, b in v.youtube_only:  # never bleed into long-form-only material (title card)
         if start < a < end:
             end = round(a - 1 / 30, 3)
@@ -76,32 +83,33 @@ def quotes_for(segments):
 
 
 PLAN = [
+    # One thread per clip. No spoken sign-off: the ZVC end card points to the full review.
     (
         "v1-verdict",
         "Breeder: a great pitch, a middle-of-the-road thriller",
-        [(0.125, 8.167), (42.708, 47.625), (357.167, 361.5), (483.5, 484.375)],
-        "Post-Roe horror with a lot to say and not much tension. Full review on the channel.",
+        [(0.125, 8.167), (333.625, 348.125), (42.708, 47.625)],
+        "Post-Roe horror with a lot to say and not much tension. Full review on YouTube.",
         ["#zerovisioncinema", "#breeder", "#horror", "#moviereview"],
     ),
     (
         "v2-gender-swap",
         "Breeder flips who gets exposed on screen",
-        [(283.75, 307.792), (483.5, 484.375)],
+        [(258.25, 270.917), (280.167, 307.792)],
         "Breeder puts the man on display, and that's the point.",
         ["#zerovisioncinema", "#breeder", "#horror", "#filmanalysis"],
     ),
     (
         "v3-who-decides",
         "Who gets to decide who breeds?",
-        [(195.875, 200.042), (316.25, 329.417)],
+        [(186.167, 200.042), (316.25, 333.417)],
         "Breeder and The Handmaid's Tale ask the same question.",
         ["#zerovisioncinema", "#breeder", "#horror", "#handmaidstale"],
     ),
     (
         "v4-no-thrills",
         "A thriller without the thrills",
-        [(28.208, 37.542), (383.333, 389.667), (484.542, 485.875), (489.0, 490.208)],
-        "Big ideas, no narrative drive. Am I way off base?",
+        [(28.208, 42.5), (348.208, 355.917), (383.333, 389.667)],
+        "Big ideas, no narrative drive. Full review on YouTube.",
         ["#zerovisioncinema", "#breeder", "#horror", "#moviereview"],
     ),
 ]
@@ -128,6 +136,7 @@ for cid, hook, ranges, caption, tags in PLAN:
                 selected=True,
             )
         ],
+        end_card=rules.end_card.topic_title,
         created_by="human",
     )
     rep = validate_clip(clip, t, rules, video=v)
@@ -148,6 +157,14 @@ for cid, *_ in PLAN:
             "id": cid,
             "segments": [[round(g.start, 3), round(g.end, 3)] for g in clip.segments],
             "srt": f"{cid}.srt",
+            "end_card": clip.end_card
+            and {
+                "title": rules.end_card.title,
+                "topic_title": clip.end_card,
+                "label": rules.end_card.label,
+                "seconds": rules.end_card.seconds,
+                "transition_in": rules.end_card.transition_in,
+            },
         }
     )
 (out_dir / "plan.json").write_text(json.dumps(plan, indent=1))

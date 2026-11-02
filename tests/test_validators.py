@@ -191,3 +191,51 @@ def test_end_card_defaults_loaded(rules):
     assert ec.title == "ZVC Topic Label Slam"
     assert ec.topic_title == "FULL VIDEO ON YOUTUBE"
     assert (ec.seconds, ec.transition_in, ec.only_when_long_review) == (3.0, "wipe", True)
+
+
+def test_end_card_replaces_spoken_outro(good_clip, transcript, rules):
+    from cutroom.schemas import VideoContext
+
+    # last line of the clip becomes a spoken sign-off
+    segs = [s.model_copy() for s in transcript.segments]
+    signoff = next(s for s in segs if s.start == 60.0)
+    signoff.text = "Let me know what you think."
+    t = transcript.model_copy(update={"segments": segs})
+    with_review = VideoContext(video_id="synthetic-001", long_review="https://youtu.be/x")
+    no_review = VideoContext(video_id="synthetic-001")
+
+    # longer review exists: needs the card and must cut the sign-off
+    assert validate_clip(good_clip, t, rules, video=with_review).error_codes == [
+        "MISSING_END_CARD",
+        "SPOKEN_OUTRO",
+    ]
+    fixed = good_clip.model_copy(
+        update={
+            "segments": [ClipSegment(start=40.0, end=56.6)],
+            "end_card": "FULL VIDEO ON YOUTUBE",
+        }
+    )
+    assert validate_clip(fixed, t, rules, video=with_review).error_codes == []
+    assert abs(fixed.duration - 16.6) < 1e-9  # the 3s card counts toward the length limits
+    # no longer review: the card would point nowhere
+    assert validate_clip(fixed, t, rules, video=no_review).error_codes == [
+        "END_CARD_WITHOUT_LONG_REVIEW"
+    ]
+    # no audio map / video context at all: only the card claim is checked
+    assert validate_clip(good_clip, t, rules).error_codes == []
+
+
+def test_estimated_line_times_trust_the_audio_pause(good_clip, transcript, rules):
+    from cutroom.schemas import VideoContext
+
+    est = transcript.model_copy(update={"word_timing": "estimated"})
+    clip = good_clip.model_copy(update={"segments": [ClipSegment(start=40.2, end=64.6)]})
+    video = VideoContext(video_id="synthetic-001", silences=[(40.1, 40.3), (64.4, 64.8)])
+    # SRT says the line starts at 40.0, but the audio is silent until 40.3: no words lost
+    assert validate_clip(clip, est, rules, video=video).error_codes == []
+    # without the audio map there is no proof, so the cut is rejected
+    assert "PARTIAL_LINE" in validate_clip(clip, est, rules).error_codes
+    # a 0.5s miss is more than estimate slop, even in a pause
+    far = good_clip.model_copy(update={"segments": [ClipSegment(start=40.5, end=64.6)]})
+    wide = VideoContext(video_id="synthetic-001", silences=[(40.0, 40.6), (64.4, 64.8)])
+    assert "PARTIAL_LINE" in validate_clip(far, est, rules, video=wide).error_codes

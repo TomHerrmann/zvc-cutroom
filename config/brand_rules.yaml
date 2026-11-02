@@ -82,3 +82,7 @@ end_card:
   seconds: 3.0
   transition_in: wipe
   only_when_long_review: true
+  replaces:
+    - let me know what you think
+    - let us know in the comments
+    - do you think i'm way off base

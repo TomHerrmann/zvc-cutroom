@@ -78,6 +78,8 @@ class EndCardRules(_Cfg):
     seconds: float = Field(gt=0)
     transition_in: Literal["cut", "wipe"] = "wipe"
     only_when_long_review: bool = True
+    # Spoken sign-offs the card replaces; a clip must not keep them.
+    replaces: list[str] = Field(default_factory=list)
 
 
 class BrandRules(_Cfg):

@@ -3,6 +3,9 @@ from __future__ import annotations
 from ..config import BrandRules
 from ..schemas import ClipProposal, Issue, Severity, Transcript, VideoContext
 
+# Seconds of a line that may sit outside a cut when the audio map proves the edge is silent.
+SRT_SLOP = 0.35
+
 
 def check_timestamps(
     clip: ClipProposal,
@@ -59,12 +62,13 @@ def check_timestamps(
                 message=f"clips are short form; {clip.format} is the {spec.form}-form format",
             )
         )
-    if not spec.min_seconds <= clip.duration <= spec.max_seconds:
+    total = clip.duration + (rules.end_card.seconds if clip.end_card and rules.end_card else 0)
+    if not spec.min_seconds <= total <= spec.max_seconds:
         issues.append(
             Issue(
                 code="BAD_LENGTH",
                 field="end",
-                message=f"{clip.duration:.1f}s is outside {clip.format} range "
+                message=f"{total:.1f}s is outside {clip.format} range "
                 f"{spec.min_seconds}-{spec.max_seconds}s",
             )
         )
@@ -114,11 +118,23 @@ def check_timestamps(
                         )
                     )
     # A segment must hold whole subtitle lines: a line that is only partly inside the cut
-    # means words are clipped at the start or end.
+    # means words are clipped at the start or end. SRT line times are estimates, so when the
+    # audio map shows the edge sits in a real pause, a sliver of up to SRT_SLOP seconds on the
+    # wrong side of a line boundary is silence, not words, and is allowed.
     for i, g in enumerate(clip.segments):
         for cue in transcript.segments:
             overlap = min(cue.end, g.end) - max(cue.start, g.start)
             if 0.05 < overlap < (cue.end - cue.start) - 0.05:
+                missing = (cue.end - cue.start) - overlap
+                edge = g.start if cue.start < g.start else g.end
+                if (
+                    transcript.word_timing == "estimated"
+                    and video is not None
+                    and video.silences
+                    and video.in_silence(edge)
+                    and min(missing, overlap) <= SRT_SLOP
+                ):
+                    continue
                 issues.append(
                     Issue(
                         code="PARTIAL_LINE",
