@@ -69,8 +69,16 @@ subtitles:
   highlight_color: "#4A8CC6"     # Blue Light
   highlight: active_word         # vertical only: the word being spoken is highlighted
   max_chars_per_line:            # DRAFT
-    vertical: 24
+    vertical: 22
     wide: 42
+  caption_style:                 # vertical burned-in captions; DRAFT
+    font: Montserrat ExtraBold
+    size: 84
+    uppercase: true
+    max_words: 3
+    outline: 7
+    margin_x: 80
+    margin_bottom: 560
 
 # Vertical clips that come from a longer YouTube review end on the ZVC Topic Label Slam
 # instead of a spoken "let me know what you think". The title comes straight from the ZVC
@@ -80,7 +88,8 @@ end_card:
   topic_title: FULL VIDEO ON YOUTUBE
   label: ZERO VISION CINEMA
   seconds: 3.0
-  transition_in: wipe
+  transition_in: overlap        # on a track above the video, starting over its last frames
+  overlap_frames: 12
   only_when_long_review: true
   replaces:
     - let me know what you think

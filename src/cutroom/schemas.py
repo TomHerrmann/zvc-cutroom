@@ -58,7 +58,8 @@ class Transcript(_Model):
     model: str | None = None
     # SRT cues carry no per-word timing, so word times inside a cue are spread evenly
     # ("estimated"). Quote lookups then match at cue level instead of word level.
-    word_timing: Literal["exact", "estimated"] = "exact"
+    # "aligned": forced alignment of the reviewed text to the audio (cutroom.align).
+    word_timing: Literal["exact", "aligned", "estimated"] = "exact"
     segments: list[Segment]
 
     def words(self) -> list[Word]:

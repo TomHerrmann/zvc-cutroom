@@ -375,13 +375,26 @@ def clip_transcript(transcript: Transcript, clip) -> Transcript:
                 continue
             a = max(s.start, g.start) - g.start + offset
             b = min(s.end, g.end) - g.start + offset
+            if transcript.word_timing == "estimated":
+                words = _spread_words(s.text, round(a, 3), round(b, 3))
+            else:  # real word times: shift them, keep the words whose middle is in the cut
+                words = [
+                    w.model_copy(
+                        update={
+                            "start": round(max(w.start, g.start) - g.start + offset, 3),
+                            "end": round(min(w.end, g.end) - g.start + offset, 3),
+                        }
+                    )
+                    for w in s.words
+                    if g.start <= (w.start + w.end) / 2 <= g.end
+                ]
             segments.append(
                 Segment(
                     id=len(segments),
                     start=round(a, 3),
                     end=round(b, 3),
                     text=s.text,
-                    words=_spread_words(s.text, round(a, 3), round(b, 3)),
+                    words=words,
                 )
             )
         offset += g.duration

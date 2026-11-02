@@ -118,7 +118,7 @@ def check_timestamps(
                         )
                     )
     # A segment must hold whole subtitle lines: a line that is only partly inside the cut
-    # means words are clipped at the start or end. SRT line times are estimates, so when the
+    # means words are clipped at the start or end. SRT or aligned times are approximate, so when the
     # audio map shows the edge sits in a real pause, a sliver of up to SRT_SLOP seconds on the
     # wrong side of a line boundary is silence, not words, and is allowed.
     for i, g in enumerate(clip.segments):
@@ -128,7 +128,7 @@ def check_timestamps(
                 missing = (cue.end - cue.start) - overlap
                 edge = g.start if cue.start < g.start else g.end
                 if (
-                    transcript.word_timing == "estimated"
+                    transcript.word_timing != "exact"
                     and video is not None
                     and video.silences
                     and video.in_silence(edge)

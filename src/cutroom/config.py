@@ -62,6 +62,20 @@ class FormatRules(_Cfg):
     render: RenderPreset
 
 
+class CaptionStyle(_Cfg):
+    """Burned-in vertical captions (rendered by libass)."""
+
+    font: str
+    size: int = Field(gt=0)
+    uppercase: bool = False
+    max_words: int = Field(default=4, ge=1)
+    outline: int = 6
+    shadow: int = 0
+    margin_x: int = 70
+    margin_bottom: int = 560  # px from the bottom, clear of TikTok's caption/UI area
+    hold: float = 0.35  # seconds a line stays up after its last word
+
+
 class SubtitleRules(_Cfg):
     source: Literal["resolve"] = "resolve"
     review_model: str
@@ -69,6 +83,7 @@ class SubtitleRules(_Cfg):
     highlight_color: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
     highlight: Literal["active_word", "none"] = "active_word"
     max_chars_per_line: dict[Format, int]
+    caption_style: CaptionStyle
 
 
 class EndCardRules(_Cfg):
@@ -76,7 +91,10 @@ class EndCardRules(_Cfg):
     topic_title: str
     label: str | None = None
     seconds: float = Field(gt=0)
-    transition_in: Literal["cut", "wipe"] = "wipe"
+    # overlap: the card sits on a track above the video and starts overlap_frames before
+    # the video ends, so it slams over the last moment instead of following a cut.
+    transition_in: Literal["cut", "wipe", "overlap"] = "overlap"
+    overlap_frames: int = Field(default=12, ge=0)
     only_when_long_review: bool = True
     # Spoken sign-offs the card replaces; a clip must not keep them.
     replaces: list[str] = Field(default_factory=list)

@@ -190,7 +190,7 @@ def test_end_card_defaults_loaded(rules):
     ec = rules.end_card
     assert ec.title == "ZVC Topic Label Slam"
     assert ec.topic_title == "FULL VIDEO ON YOUTUBE"
-    assert (ec.seconds, ec.transition_in, ec.only_when_long_review) == (3.0, "wipe", True)
+    assert (ec.seconds, ec.transition_in, ec.only_when_long_review) == (3.0, "overlap", True)
 
 
 def test_end_card_replaces_spoken_outro(good_clip, transcript, rules):

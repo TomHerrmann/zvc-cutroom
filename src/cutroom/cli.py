@@ -119,6 +119,30 @@ def review_subs(
     )
 
 
+@app.command("align")
+def align_cmd(
+    transcript: Path = typer.Argument(..., exists=True, help="transcript.reviewed.json"),
+    audio: Path = typer.Option(..., exists=True, help="16 kHz mono WAV of the source video."),
+) -> None:
+    """Time every reviewed word against the audio (forced alignment, no transcription).
+
+    Writes transcript.aligned.json next to the input. Needs the `align` extra.
+    """
+    from .align import align_transcript
+    from .audio import Level
+
+    t = Transcript.model_validate_json(transcript.read_text())
+    silences = Level.from_wav(audio).silences(0, t.duration + 1, 0.04)
+    with run("align") as r:
+        aligned, failed = align_transcript(t, audio, silences)
+        r.record.extra["lines_unaligned"] = failed
+    out = transcript.with_name("transcript.aligned.json")
+    out.write_text(aligned.model_dump_json(indent=1))
+    console.print(f"[green]wrote[/] {out}  ({len(aligned.words())} words)")
+    if failed:
+        console.print(f"[yellow]{len(failed)} lines kept estimated times:[/] {failed}")
+
+
 @app.command()
 def validate(
     clips: Path = typer.Argument(..., exists=True, help="Clip JSON/YAML file or a folder of them."),

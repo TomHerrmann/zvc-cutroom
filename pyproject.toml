@@ -10,10 +10,12 @@ dependencies = [
     "pyyaml>=6.0",
     "typer>=0.12",
     "anthropic>=2.3",
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.5"]
+align = ["pocketsphinx>=5"]
 
 [project.scripts]
 cutroom = "cutroom.cli:app"

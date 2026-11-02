@@ -59,7 +59,20 @@ anything that doesn't line up with a real cue is rejected, and heavy rewrites ar
 human to check by ear. Words Claude can't verify (an unfamiliar name, a sound-alike like
 "B" vs "bee") are never changed automatically: they go into `subtitle_questions.md` with the
 sentence before, the sentence, and the sentence after, and stay as transcribed until a person
-answers them. The corrected SRT goes back onto Resolve's subtitle track.
+answers them. The corrected SRT is the YouTube caption file for wide videos.
+
+Vertical clips need more than an SRT. Resolve gives one time range per line, and its scripting
+API can't style subtitles or animate them word by word. So `cutroom align` force-aligns the
+reviewed text to the audio. This uses pocketsphinx's bundled English model, and it only times
+words that are already known; it does no transcription. Captions are then built from those word
+times: at most 3 words / 22 characters per line, Montserrat ExtraBold, with the spoken word in
+brand blue. They are rendered with libass to a transparent overlay above the video.
+
+Cuts use the same data. Each clip is an ordered list of source segments, so it can stitch lines
+from different parts of the review. Every segment edge is snapped into measured silence (5 ms
+audio level, below -55 dB), so no clip starts or ends inside a word. If a longer review exists,
+the clip ends on the ZVC title card ("FULL VIDEO ON YOUTUBE"), which slams in over the last
+12 frames. Spoken sign-offs like "let me know what you think" are rejected.
 
 ## What's here
 
@@ -68,6 +81,9 @@ answers them. The corrected SRT goes back onto Resolve's subtitle track.
 | `schemas.py` | Pydantic models for transcripts, clip proposals, validation reports, run records. `extra="forbid"` everywhere, so malformed model output fails to parse. |
 | `config/brand_rules.yaml` + `config.py` | Brand rules as data: CTA window, cover rules, spoiler terms, hashtags, output formats, subtitle colors. Hashed into every run record. |
 | `validators/` | Pure functions returning typed issues. `quotes` (verbatim match inside the claimed time window: no invented or misattributed quotes), `timestamps` (bounds, length, resolution, caption mode, short-form-is-vertical, mid-word cuts), `brand` (CTA, cover face + 3-5 words, spoilers, hashtags, caption length). |
+| `align.py` / `audio.py` | Forced alignment of the reviewed words to the audio, and the audio level map that cut edges snap to. |
+| `captions.py` | Short caption lines from real word times, written as ASS with the spoken word highlighted. |
+| `validators/outro.py` | The end card is required when a longer review exists, spoken sign-offs are rejected, and the card can't point to a review that doesn't exist. |
 | `subtitles.py` | Resolve SRT import/export, the Claude accuracy review (structured output), and the checks that gate each correction. |
 | `evals.py` | Eval sets of hand-labelled good and bad clips. Reports gate accuracy, good-pass rate, bad-catch rate, and whether bad clips were caught for the right reason. |
 | `runlog.py` | Appends a record per command to `runs/runs.jsonl`: latency, tokens, cost, pass/fail counts, failure codes, git sha, brand-rules hash. |

@@ -5,6 +5,8 @@ import json
 import sys
 from pathlib import Path
 
+from cutroom.audio import Level
+from cutroom.captions import write_ass
 from cutroom.config import load_rules
 from cutroom.schemas import (
     CTA,
@@ -20,53 +22,35 @@ from cutroom.subtitles import clip_transcript, write_srt
 from cutroom.validators import validate_clip
 
 D = Path("data/breeder-2026-review")
-t = Transcript.model_validate_json((D / "transcript.reviewed.json").read_text())
+# Line ids come from the reviewed SRT; word times from the forced alignment (cutroom align).
+srt = Transcript.model_validate_json((D / "transcript.reviewed.json").read_text())
+t = Transcript.model_validate_json((D / "transcript.aligned.json").read_text())
 v = VideoContext.model_validate_json((D / "video.json").read_text())
 cues = t.segments
-
-
-def cue_at(time: float):
-    return min(cues, key=lambda s: abs(s.start - time))
-
-
-def cut_in(t0: float) -> float:
-    """Start inside the pause before the first word."""
-    cands = [(a, b) for a, b in v.silences if a <= t0 + 0.05 and b >= t0 - 0.6]
-    if not cands:
-        return max(t0 - 0.1, 0.0)
-    a, b = cands[-1]
-    return round(max(a + 0.02, min(t0 - 0.1, b - 0.05)) if b > t0 else max(a + 0.02, b - 0.15), 3)
-
-
-def cut_out(t1: float) -> float:
-    """End inside the pause after the last word."""
-    cands = [(a, b) for a, b in v.silences if b >= t1 and a <= t1 + 0.6]
-    if not cands:
-        return round(min(t1 + 0.3, t.duration), 3)
-    a, b = cands[0]
-    return round(min(t1 + 0.15, b - 0.02) if a <= t1 else min(a + 0.2, (a + b) / 2), 3)
+words = t.words()
+level = Level.from_wav(Path(sys.argv[2]) if len(sys.argv) > 2 else D / "audio16k.wav")
 
 
 def seg(first: float, last_end: float):
-    """first = start time of the first cue, last_end = end time of the last cue."""
-    start, end = cut_in(first), cut_out(last_end)
-    prev_end = max((s.end for s in cues if s.end <= first + 0.01), default=0.0)
-    next_start = min((s.start for s in cues if s.start >= last_end - 0.01), default=t.duration)
-    start = max(start, prev_end + 0.02)  # never pick up the tail of the previous line
-    end = min(end, next_start - 0.02)  # never pick up the start of the next line
-    if not v.in_silence(end):
-        # SRT line times are estimates: if the real pause sits just past the line boundary,
-        # end inside it instead of mid-word.
-        near = [(a, b) for a, b in v.silences if b >= end and a <= end + 0.3]
-        if near:
-            a, b = near[0]
-            end = round(min(a + 0.1, (a + b) / 2), 3)
+    """first/last_end: SRT times of the first and last line to keep. Cuts land in the gap
+    between real words: never inside the first or last word, never on a neighbour."""
+    ids = [s.id for s in srt.segments if s.start >= first - 0.05 and s.end <= last_end + 0.05]
+    lines = [c for c in cues if c.id in ids and c.words]
+    w0, w1 = lines[0].words[0], lines[-1].words[-1]
+    i0, i1 = words.index(w0), words.index(w1)
+    prev_end = words[i0 - 1].end if i0 > 0 else 0.0
+    next_start = words[i1 + 1].start if i1 + 1 < len(words) else t.duration
+    start, ok_in = level.cut_in(w0.start, prev_end)
+    end, ok_out = level.cut_out(w1.end, next_start)
+    if not (ok_in and ok_out):
+        edge = "start" if not ok_in else "end"
+        print(f"  no clean pause at the {edge} of {first:.2f}-{last_end:.2f}")
     for a, b in v.youtube_only:  # never bleed into long-form-only material (title card)
         if start < a < end:
-            end = round(a - 1 / 30, 3)
+            end = a - 1 / 30
         if start < b < end:
-            start = round(b + 1 / 30, 3)
-    return ClipSegment(start=start, end=end)
+            start = b + 1 / 30
+    return ClipSegment(start=round(max(start, 0.0), 3), end=round(end, 3))
 
 
 def quotes_for(segments):
@@ -108,8 +92,8 @@ PLAN = [
     (
         "v4-no-thrills",
         "A thriller without the thrills",
-        [(28.208, 42.5), (348.208, 355.917), (383.333, 389.667)],
-        "Big ideas, no narrative drive. Full review on YouTube.",
+        [(28.208, 42.5), (348.208, 355.917)],
+        "A thriller has one job. Full review on YouTube.",
         ["#zerovisioncinema", "#breeder", "#horror", "#moviereview"],
     ),
 ]
@@ -151,12 +135,18 @@ out_dir.mkdir(parents=True, exist_ok=True)
 plan = []
 for cid, *_ in PLAN:
     clip = store.get(t.video_id, cid)
-    write_srt(clip_transcript(t, clip), out_dir / f"{cid}.srt")
+    ct = clip_transcript(t, clip)
+    write_srt(ct, out_dir / f"{cid}.srt")
+    # captions stop where the end card starts to slam over the video
+    card_in = clip.duration - (rules.end_card.overlap_frames / 30 if clip.end_card else 0)
+    write_ass(ct, rules, out_dir / f"{cid}.ass", end_at=card_in)
     plan.append(
         {
             "id": cid,
             "segments": [[round(g.start, 3), round(g.end, 3)] for g in clip.segments],
             "srt": f"{cid}.srt",
+            "captions": f"{cid}.ass",
+            "duration": round(clip.duration, 3),
             "end_card": clip.end_card
             and {
                 "title": rules.end_card.title,
@@ -164,6 +154,7 @@ for cid, *_ in PLAN:
                 "label": rules.end_card.label,
                 "seconds": rules.end_card.seconds,
                 "transition_in": rules.end_card.transition_in,
+                "overlap_frames": rules.end_card.overlap_frames,
             },
         }
     )
