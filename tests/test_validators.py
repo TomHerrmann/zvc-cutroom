@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from cutroom.schemas import CTA, ClipProposal, QuoteRef, Word
+from cutroom.schemas import CTA, ClipProposal, ClipSegment, QuoteRef, Word
 from cutroom.validators import validate_clip
 from cutroom.validators.text import normalize_tokens
 
@@ -121,10 +121,12 @@ def test_cue_level_quote_matching_for_srt_transcripts(good_clip, transcript, rul
     assert "QUOTE_NOT_IN_TRANSCRIPT" in codes(bad, est, rules)
 
 
-def test_mid_word_cut_warns(good_clip, transcript, rules):
-    clip = good_clip.model_copy(update={"start": 40.2})  # inside "Here's" (40.0-40.4)
+def test_cut_through_a_line_is_rejected(good_clip, transcript, rules):
+    # starts inside "Here's" (40.0-40.4), so the first line is clipped
+    clip = good_clip.model_copy(update={"segments": [ClipSegment(start=40.2, end=64.6)]})
     rep = validate_clip(clip, transcript, rules)
-    assert rep.passed and any(i.code == "CUT_MID_WORD" for i in rep.issues)
+    assert rep.error_codes == ["PARTIAL_LINE"]
+    assert any(i.code == "CUT_MID_WORD" for i in rep.issues)
 
 
 def test_schema_rejects_unknown_fields_and_bad_words():
@@ -133,8 +135,7 @@ def test_schema_rejects_unknown_fields_and_bad_words():
             {
                 "id": "x",
                 "video_id": "v",
-                "start": 0,
-                "end": 20,
+                "segments": [{"start": 0, "end": 20}],
                 "hook": "h",
                 "caption": "c",
                 "mood": "spicy",
@@ -142,3 +143,44 @@ def test_schema_rejects_unknown_fields_and_bad_words():
         )
     with pytest.raises(ValidationError):
         Word(text="a", start=2.0, end=1.0)
+
+
+def test_stitched_clip_from_several_parts(good_clip, transcript, rules):
+    clip = good_clip.model_copy(
+        update={
+            "segments": [ClipSegment(start=40.0, end=50.4), ClipSegment(start=127.0, end=130.4)],
+            "quotes": [
+                QuoteRef(text="the light is real", start=48.0, end=50.2),
+                QuoteRef(
+                    text="Cut twenty minutes and this is a masterpiece.", start=127.0, end=130.2
+                ),
+            ],
+        }
+    )
+    rep = validate_clip(clip, transcript, rules)
+    assert abs(clip.duration - 13.8) < 1e-9
+    assert clip.source_time(11.0) == 127.6
+    assert rep.error_codes == ["BAD_LENGTH"]  # 13.8s is under the 15s minimum
+    assert not any(i.code == "QUOTE_OUTSIDE_CLIP" for i in rep.issues)
+
+
+def test_overlapping_segments_rejected(good_clip, transcript, rules):
+    clip = good_clip.model_copy(
+        update={"segments": [ClipSegment(start=40.0, end=55.0), ClipSegment(start=50.0, end=64.0)]}
+    )
+    assert "OVERLAPPING_SEGMENTS" in codes(clip, transcript, rules)
+
+
+def test_audio_map_edges_and_youtube_only(good_clip, transcript, rules):
+    from cutroom.schemas import VideoContext
+
+    video = VideoContext(
+        video_id="synthetic-001",
+        silences=[(39.8, 40.05), (64.4, 64.8)],
+        youtube_only=[(50.0, 52.0)],
+    )
+    rep = validate_clip(good_clip, transcript, rules, video=video)
+    assert rep.error_codes == ["YOUTUBE_ONLY_CONTENT"]
+    late = good_clip.model_copy(update={"segments": [ClipSegment(start=40.0, end=62.0)]})
+    assert "CUT_MID_SPEECH" in validate_clip(late, transcript, rules, video=video).error_codes
+    assert video.snap(64.3) == 64.6

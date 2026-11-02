@@ -224,7 +224,7 @@ def queue(
     """List clips in the store with their review status."""
     for c in ClipStore(root).list(video_id):
         console.print(
-            f"{c.status.value:22} {c.video_id}/{c.id}  {c.start:.1f}-{c.end:.1f}s  "
+            f"{c.status.value:22} {c.video_id}/{c.id}  {len(c.segments)} seg {c.duration:.1f}s  "
             f"{c.platform.value}  {c.hook}"
         )
 

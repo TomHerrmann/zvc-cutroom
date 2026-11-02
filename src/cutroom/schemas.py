@@ -114,6 +114,46 @@ class MomentScores(_Model):
     theme: float | None = Field(default=None, ge=0, le=1)
 
 
+class ClipSegment(_Model):
+    """One continuous range of the source video. A clip is one or more of these, played in order."""
+
+    start: float = Field(ge=0, description="Source-video seconds.")
+    end: float = Field(gt=0, description="Source-video seconds.")
+
+    @model_validator(mode="after")
+    def _ordered(self) -> ClipSegment:
+        if self.end <= self.start:
+            raise ValueError(f"segment ends ({self.end}) before it starts ({self.start})")
+        return self
+
+    @property
+    def duration(self) -> float:
+        return self.end - self.start
+
+
+class VideoContext(_Model):
+    """Per-video facts the validators need beyond the transcript."""
+
+    video_id: str
+    # Measured audio silences (start, end), e.g. from ffmpeg silencedetect. Segment edges
+    # must land inside one, so no clip starts or ends mid-word.
+    silences: list[tuple[float, float]] = Field(default_factory=list)
+    # Ranges that only belong in the long-form YouTube video (title card, sponsor reads).
+    youtube_only: list[tuple[float, float]] = Field(default_factory=list)
+
+    def in_silence(self, t: float, slack: float = 0.03) -> bool:
+        return any(a - slack <= t <= b + slack for a, b in self.silences)
+
+    def snap(self, t: float, window: float = 0.6) -> float:
+        """Move t to the middle of the nearest silence within `window` seconds."""
+        best = None
+        for a, b in self.silences:
+            mid = (a + b) / 2
+            if abs(mid - t) <= window and (best is None or abs(mid - t) < abs(best - t)):
+                best = mid
+        return round(best, 3) if best is not None else t
+
+
 class ClipStatus(StrEnum):
     PROPOSED = "proposed"
     REJECTED_BY_VALIDATOR = "rejected_by_validator"
@@ -132,8 +172,8 @@ class ClipProposal(_Model):
     id: str
     video_id: str
     format: Format = Format.VERTICAL
-    start: float = Field(ge=0, description="Cut-in, source-video seconds.")
-    end: float = Field(gt=0, description="Cut-out, source-video seconds.")
+    # Played in order. A clip can stitch lines from different parts of the video.
+    segments: list[ClipSegment] = Field(min_length=1)
     hook: str = Field(description="What the first seconds are selling, in one line.")
     caption: str
     hashtags: list[str] = Field(default_factory=list)
@@ -150,7 +190,21 @@ class ClipProposal(_Model):
 
     @property
     def duration(self) -> float:
-        return self.end - self.start
+        return sum(seg.duration for seg in self.segments)
+
+    def contains(self, start: float, end: float | None = None, slack: float = 0.0) -> bool:
+        """True if source range [start, end] sits inside one segment."""
+        end = start if end is None else end
+        return any(g.start - slack <= start and end <= g.end + slack for g in self.segments)
+
+    def source_time(self, clip_t: float) -> float:
+        """Map a time in the edited clip to a time in the source video."""
+        elapsed = 0.0
+        for g in self.segments:
+            if clip_t <= elapsed + g.duration:
+                return g.start + (clip_t - elapsed)
+            elapsed += g.duration
+        return self.segments[-1].end
 
     def selected_cover(self) -> CoverCandidate | None:
         chosen = [c for c in self.covers if c.selected]

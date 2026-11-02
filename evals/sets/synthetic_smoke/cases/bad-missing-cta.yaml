@@ -7,8 +7,9 @@ clip:
   id: bad-missing-cta
   video_id: synthetic-001
   format: vertical
-  start: 40.0
-  end: 64.6
+  segments:
+  - start: 40.0
+    end: 64.6
   hook: Practical effects age better than CGI, here's why
   caption: Why practical effects still hold up decades later. Part two breaks down the final scene.
   hashtags:

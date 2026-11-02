@@ -358,3 +358,37 @@ def apply_answers(
         for s in transcript.segments
     ]
     return transcript.model_copy(update={"segments": segments}), issues
+
+
+# --------------------------------------------------------------------------- per-clip
+
+
+def clip_transcript(transcript: Transcript, clip) -> Transcript:
+    """Re-time the cues that fall inside a clip's segments onto the clip's own timeline."""
+    segments: list[Segment] = []
+    offset = 0.0
+    for g in clip.segments:
+        for s in transcript.segments:
+            overlap = min(s.end, g.end) - max(s.start, g.start)
+            # keep a cue only if most of it is actually in the cut
+            if overlap <= 0 or overlap < 0.5 * (s.end - s.start):
+                continue
+            a = max(s.start, g.start) - g.start + offset
+            b = min(s.end, g.end) - g.start + offset
+            segments.append(
+                Segment(
+                    id=len(segments),
+                    start=round(a, 3),
+                    end=round(b, 3),
+                    text=s.text,
+                    words=_spread_words(s.text, round(a, 3), round(b, 3)),
+                )
+            )
+        offset += g.duration
+    return transcript.model_copy(
+        update={
+            "video_id": f"{clip.video_id}/{clip.id}",
+            "duration": round(offset, 3),
+            "segments": segments,
+        }
+    )

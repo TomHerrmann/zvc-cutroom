@@ -47,7 +47,7 @@ def check_brand(clip: ClipProposal, rules: BrandRules, extra_spoilers: list[str]
             )
         )
     else:
-        if not clip.start <= cover.frame_time <= clip.end:
+        if not clip.contains(cover.frame_time):
             issues.append(
                 Issue(
                     code="COVER_OUTSIDE_CLIP",

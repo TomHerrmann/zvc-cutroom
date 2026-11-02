@@ -7,8 +7,9 @@ clip:
   id: bad-spoiler
   video_id: synthetic-001
   format: vertical
-  start: 40.0
-  end: 64.6
+  segments:
+  - start: 40.0
+    end: 64.6
   hook: Practical effects age better than CGI, here's why
   caption: You won't believe it when you learn the narrator was dead all along.
   hashtags:

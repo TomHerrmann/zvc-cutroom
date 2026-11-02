@@ -50,7 +50,7 @@ def check_quotes(clip: ClipProposal, transcript: Transcript, rules: BrandRules) 
                 )
             )
             continue
-        if q.start < clip.start - tol or q.end > clip.end + tol:
+        if not clip.contains(q.start, q.end, slack=tol):
             issues.append(
                 Issue(
                     code="QUOTE_OUTSIDE_CLIP",
@@ -62,7 +62,7 @@ def check_quotes(clip: ClipProposal, transcript: Transcript, rules: BrandRules) 
 
     # A spoken CTA is a quote too: it has to actually be said, where the clip says it is.
     if clip.cta and clip.cta.kind == "spoken":
-        at = clip.start + clip.cta.at
+        at = clip.source_time(clip.cta.at)
         n_words = max(len(normalize_tokens(clip.cta.text)), 1)
         probe = QuoteRef(text=clip.cta.text, start=at, end=at + 0.6 * n_words)
         if not quote_in_transcript(probe, transcript, tol):

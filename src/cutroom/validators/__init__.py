@@ -7,7 +7,7 @@ exactly as the pipeline does.
 from __future__ import annotations
 
 from ..config import BrandRules
-from ..schemas import ClipProposal, Transcript, ValidationReport
+from ..schemas import ClipProposal, Transcript, ValidationReport, VideoContext
 from .brand import check_brand
 from .quotes import check_quotes
 from .timestamps import check_timestamps
@@ -20,9 +20,10 @@ def validate_clip(
     transcript: Transcript,
     rules: BrandRules,
     extra_spoilers: list[str] | None = None,
+    video: VideoContext | None = None,
 ) -> ValidationReport:
     issues = []
-    issues += check_timestamps(clip, transcript, rules)
+    issues += check_timestamps(clip, transcript, rules, video)
     issues += check_quotes(clip, transcript, rules)
     issues += check_brand(clip, rules, extra_spoilers or [])
     return ValidationReport(clip_id=clip.id, issues=issues)
