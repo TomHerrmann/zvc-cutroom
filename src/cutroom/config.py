@@ -72,8 +72,7 @@ class SubtitleRules(_Cfg):
 
 
 class EndCardRules(_Cfg):
-    title: str
-    template_comp: str
+    title: str  # name in Resolve's title library
     topic_title: str
     label: str | None = None
     seconds: float = Field(gt=0)
