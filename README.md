@@ -15,7 +15,7 @@ change, and a log of cost, latency and pass rates for every run.
 |---|---|
 | 1. Pilot: harness, brand rules, eval structure, subtitle ingest + review | **done for review**: run on one real video (Breeder, 2026); the live Claude subtitle call is untested (no API key yet) |
 | 2. Automated proposals (LLM scoring + drafting, validated quotes) | not started; the four pilot clips were planned by hand |
-| 3. Resolve Studio render (scripting API, Smart Reframe, word-highlight captions) | **partly proven**: the pilot timelines were built through the Resolve scripting API by hand; no `cutroom render` command yet |
+| 3. Resolve Studio render (scripting API, Smart Reframe, word-highlight captions) | **in review**: `export`, `captions` and `resolve-build` commands, tested against a fake Resolve in CI. The real Resolve run is manual (it needs Resolve Studio on a Mac) |
 | 4. Approval queue + metrics feedback into the ranker | not started |
 | 5. Portfolio polish: demo video, published eval results | not started |
 | Stretch: long-form 4K YouTube edits from raw footage, built with an agent ([plan](docs/longform.md)) | planned |
@@ -69,7 +69,7 @@ words that are already known; it does no transcription. Captions are then built 
 times: at most 3 words / 22 characters per line, Montserrat ExtraBold, with the spoken word in
 brand blue. An ASS file is written per clip and rendered with ffmpeg/libass to a transparent QuickTime
 Animation overlay above the video. Resolve ignored ProRes 4444 alpha in testing; QuickTime
-Animation composites correctly. That render step is a shell command today, not a `cutroom` command.
+Animation composites correctly. `cutroom captions` renders the overlays (it needs ffmpeg built with libass).
 
 Cuts use the same data. Each clip is an ordered list of source segments, so it can stitch lines
 from different parts of the review. When clips are built (`scripts/build_pilot_clips.py` for the
@@ -93,6 +93,9 @@ the clip ends on the ZVC title card ("FULL VIDEO ON YOUTUBE"), which slams in ov
 | `evals.py` | Eval sets of hand-labelled good and bad clips. Reports gate accuracy, good-pass rate, bad-catch rate, and whether bad clips were caught for the right reason. |
 | `runlog.py` | Appends a record per command to `runs/runs.jsonl`: latency, tokens, cost, pass/fail counts, failure codes, git sha, brand-rules hash. |
 | `store.py` | One JSON file per clip, with review status. |
+| `video.py` | Audio extraction, silence map and scene cuts for a source video (`video.json`). |
+| `render.py` | Exports approved vertical clips to `plan.json` + SRT + ASS, and renders the caption overlays. |
+| `resolve_build.py` | Builds one 1080x1920 timeline per clip through the Resolve scripting API: segments on V1 (Smart Reframed), captions on V2, end card on V3 over the last 12 frames. Reads each timeline back and checks it against the plan. |
 
 ## Usage
 
@@ -107,6 +110,10 @@ cutroom align data/cronov-e01/transcript.reviewed.json --audio data/cronov-e01/a
 cutroom validate clips/cronov-e01/ -t data/cronov-e01/transcript.aligned.json \
     --video data/cronov-e01/video.json
 cutroom queue --id cronov-e01
+cutroom export --id cronov-e01 -t data/cronov-e01/transcript.aligned.json --out ~/resolve/cronov-e01
+cutroom captions ~/resolve/cronov-e01/plan.json --fonts fonts
+cutroom resolve-build ~/resolve/cronov-e01/plan.json --source episode.mp4 --project cutroom
+cutroom review cronov-e01 v1-verdict post --note "clean argument, strong hook"
 cutroom eval evals/sets/synthetic_smoke
 cutroom runs
 ```
@@ -114,6 +121,19 @@ cutroom runs
 `review-subs` calls the Claude API (`ANTHROPIC_API_KEY`); `--review-file` applies a saved review
 without a call. `validate` runs the audio-based cut checks and the end-card rules only when
 `--video` is given.
+
+## To do
+
+- **Social post copy per clip.** Alongside each rendered clip, draft the post description from
+  what is actually said in the clip: a hook line, a CTA, hashtags, and per-platform mentions of
+  the film, distributor, production studio and director. Platforms without clickable links get a
+  "link in bio" note; YouTube Shorts gets the real link to the full review. Typed output,
+  validated like the clips (every claim traceable to the transcript, handles checked against a
+  list, platform length limits).
+- **Buffer drafts.** Push that copy to Buffer as drafts only, one per connected channel, for a
+  person to finish and schedule. Never `shareNow` or queue. Video posts need a public video URL,
+  so the rendered clip has to be hosted first.
+- Record post / never verdicts on the pilot clips and build the first real eval set.
 
 ## Development
 
