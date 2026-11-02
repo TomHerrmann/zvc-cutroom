@@ -190,3 +190,36 @@ def test_transcript_text_between():
         ],
     )
     assert t.text_between(0.5, 2) == "b"
+
+
+def test_unverified_words_are_never_auto_applied(tmp_path):
+    from cutroom.subtitles import HumanAnswer, UnverifiedPhrase
+
+    t = _srt_transcript(tmp_path)
+    review = SubtitleReview(
+        corrections=[],
+        unverified=[
+            UnverifiedPhrase(
+                cue_id=1, phrase="riddley scot", best_guess="Ridley Scott", reason="r"
+            ),
+            UnverifiedPhrase(cue_id=0, phrase="not there", best_guess=None, reason="r"),
+        ],
+    )
+    fixed, issues = subtitles.apply_review(t, review)
+    issues += subtitles.check_unverified(t, review)
+    assert fixed.segments[1].text == t.segments[1].text  # guess not applied
+    assert [i.code for i in issues] == ["FLAG_NOT_IN_CUE"]
+
+    ctx = subtitles.flag_context(t, 1, "riddley scot")
+    assert ctx["sentence"] == "we watched blade runner by riddley scot"
+    assert "riddley scot" in subtitles.questions_markdown(t, review)
+
+    answered, issues = subtitles.apply_answers(
+        fixed, [HumanAnswer(cue_id=1, phrase="riddley scot", replacement="Ridley Scott")]
+    )
+    assert not issues
+    assert answered.segments[1].text == "we watched blade runner by Ridley Scott"
+    _, issues = subtitles.apply_answers(
+        fixed, [HumanAnswer(cue_id=0, phrase="nope", replacement="x")]
+    )
+    assert [i.code for i in issues] == ["ANSWER_NOT_APPLIED"]

@@ -56,7 +56,10 @@ Subtitles come from DaVinci Resolve Studio's AI transcription. The exported SRT 
 pass from Claude (misheard words, names, film titles), returned as a typed list of corrections,
 never a rewritten file. Each correction must quote its cue exactly and can't touch timing;
 anything that doesn't line up with a real cue is rejected, and heavy rewrites are flagged for a
-human to check by ear. The corrected SRT goes back onto Resolve's subtitle track.
+human to check by ear. Words Claude can't verify (an unfamiliar name, a sound-alike like
+"B" vs "bee") are never changed automatically: they go into `subtitle_questions.md` with the
+sentence before, the sentence, and the sentence after, and stay as transcribed until a person
+answers them. The corrected SRT goes back onto Resolve's subtitle track.
 
 ## What's here
 

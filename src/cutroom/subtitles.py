@@ -111,9 +111,29 @@ class SubtitleCorrection(BaseModel):
     reason: str = Field(description="One short sentence on why.")
 
 
+class UnverifiedPhrase(BaseModel):
+    """A word or name the reviewer could not verify. Never auto-applied: a person decides."""
+
+    model_config = ConfigDict(extra="forbid")
+    cue_id: int
+    phrase: str = Field(description="The exact words from the cue that can't be verified.")
+    best_guess: str | None = Field(description="What it most likely should be, if anything.")
+    reason: str = Field(description="One short sentence on why it can't be verified.")
+
+
 class SubtitleReview(BaseModel):
     model_config = ConfigDict(extra="forbid")
     corrections: list[SubtitleCorrection]
+    unverified: list[UnverifiedPhrase] = Field(default_factory=list)
+
+
+class HumanAnswer(BaseModel):
+    """A person's ruling on an unverified phrase. `replacement` equal to `phrase` keeps it."""
+
+    model_config = ConfigDict(extra="forbid")
+    cue_id: int
+    phrase: str
+    replacement: str
 
 
 REVIEW_SYSTEM = """\
@@ -124,8 +144,12 @@ actors and directors, and wrong film titles.
 Return only cues that need a change. Copy `original` exactly as the cue appears. \
 Write `corrected` as the full replacement text for that cue. Fix what the speaker \
 actually said; do not reword, tidy up grammar, censor, or shorten. Keep corrections \
-inside one cue; never move words between cues. If you are not confident a change is \
-right, leave the cue alone."""
+inside one cue; never move words between cues.
+
+Only correct what you can verify from the surrounding cues or the glossary. If a word \
+or name looks wrong but you can't verify the right one, do not change it: list it under \
+`unverified` with the exact words from the cue, your best guess, and why. A person will \
+decide."""
 
 
 def _review_prompt(transcript: Transcript, glossary: list[str]) -> str:
@@ -234,3 +258,103 @@ def apply_review(transcript: Transcript, review: SubtitleReview) -> tuple[Transc
     ]
     out = transcript.model_copy(update={"segments": segments, "source": "resolve_reviewed"})
     return out, issues
+
+
+# --------------------------------------------------------------------------- unverified
+
+
+def check_unverified(transcript: Transcript, review: SubtitleReview) -> list[Issue]:
+    cues = {s.id: s for s in transcript.segments}
+    issues: list[Issue] = []
+    for i, f in enumerate(review.unverified):
+        cue = cues.get(f.cue_id)
+        if cue is None or f.phrase not in cue.text:
+            issues.append(
+                Issue(
+                    code="FLAG_NOT_IN_CUE",
+                    field=f"unverified[{i}]",
+                    message=f"{f.phrase!r} is not in cue {f.cue_id}",
+                )
+            )
+    return issues
+
+
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+
+
+def flag_context(transcript: Transcript, cue_id: int, phrase: str) -> dict[str, str | float]:
+    """The sentence before, the sentence containing the phrase, and the sentence after."""
+    full, offset = "", None
+    cue_start = 0.0
+    for s in transcript.segments:
+        if s.id == cue_id:
+            offset = len(full) + s.text.find(phrase)
+            cue_start = s.start
+        full += s.text + " "
+    if offset is None:
+        raise KeyError(cue_id)
+    sentences, pos = [], 0
+    for part in _SENTENCE_END.split(full.strip()):
+        start = full.find(part, pos)
+        sentences.append((start, start + len(part), part))
+        pos = start + len(part)
+    idx = next(i for i, (a, b, _) in enumerate(sentences) if a <= offset < b)
+    get = lambda i: sentences[i][2] if 0 <= i < len(sentences) else ""  # noqa: E731
+    return {"time": cue_start, "before": get(idx - 1), "sentence": get(idx), "after": get(idx + 1)}
+
+
+def questions_markdown(transcript: Transcript, review: SubtitleReview) -> str:
+    lines = [
+        "# Subtitle questions",
+        "",
+        "These words couldn't be verified, so they were left as is.",
+        "Answer in `subtitle_answers.yaml` and rerun with `--answers`.",
+        "",
+    ]
+    for f in review.unverified:
+        try:
+            ctx = flag_context(transcript, f.cue_id, f.phrase)
+        except (KeyError, StopIteration):
+            continue
+        m, s = divmod(int(ctx["time"]), 60)
+        lines += [
+            f'## {m}:{s:02d}  "{f.phrase}"  (cue {f.cue_id})',
+            "",
+            f"> **Before:** {ctx['before']}",
+            f"> **Sentence:** {ctx['sentence']}",
+            f"> **After:** {ctx['after']}",
+            "",
+            f"Best guess: {f.best_guess or 'none'}. {f.reason}",
+            "",
+        ]
+    return "\n".join(lines)
+
+
+def apply_answers(
+    transcript: Transcript, answers: list[HumanAnswer]
+) -> tuple[Transcript, list[Issue]]:
+    """Apply a person's rulings. Each phrase must appear exactly once in its cue."""
+    cues = {s.id: s for s in transcript.segments}
+    issues: list[Issue] = []
+    new_text: dict[int, str] = {}
+    for i, a in enumerate(answers):
+        text = new_text.get(a.cue_id, cues[a.cue_id].text if a.cue_id in cues else None)
+        if text is None or text.count(a.phrase) != 1:
+            issues.append(
+                Issue(
+                    code="ANSWER_NOT_APPLIED",
+                    field=f"answers[{i}]",
+                    message=f"{a.phrase!r} not found exactly once in cue {a.cue_id}",
+                )
+            )
+            continue
+        new_text[a.cue_id] = text.replace(a.phrase, a.replacement)
+    segments = [
+        s.model_copy(
+            update={"text": new_text[s.id], "words": _spread_words(new_text[s.id], s.start, s.end)}
+        )
+        if s.id in new_text
+        else s
+        for s in transcript.segments
+    ]
+    return transcript.model_copy(update={"segments": segments}), issues

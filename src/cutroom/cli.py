@@ -54,9 +54,17 @@ def review_subs(
     review_file: Path | None = typer.Option(
         None, exists=True, help="Apply a saved review instead of calling Claude."
     ),
+    answers: Path | None = typer.Option(
+        None, exists=True, help="YAML list of your rulings on unverified words."
+    ),
     rules_path: Path | None = RulesOpt,
 ) -> None:
-    """Claude accuracy pass on the subtitles, then write the corrected SRT for Resolve."""
+    """Claude accuracy pass on the subtitles, then write the corrected SRT for Resolve.
+
+    Words Claude can't verify are never changed automatically. They are written to
+    subtitle_questions.md with the sentence before, the sentence, and the sentence after,
+    and stay as transcribed until you answer them with --answers.
+    """
     rules = load_rules(rules_path)
     t = Transcript.model_validate_json(transcript.read_text())
     out = transcript.parent
@@ -70,17 +78,41 @@ def review_subs(
             review = subtitles.review_with_claude(t, rules.subtitles.review_model, terms, run=r)
             (out / "subtitle_review.json").write_text(review.model_dump_json(indent=2))
         fixed, issues = subtitles.apply_review(t, review)
+        issues += subtitles.check_unverified(t, review)
+        rulings = []
+        if answers:
+            rulings = [
+                subtitles.HumanAnswer.model_validate(a) for a in yaml.safe_load(answers.read_text())
+            ]
+            fixed, answer_issues = subtitles.apply_answers(fixed, rulings)
+            issues += answer_issues
+        answered = {(a.cue_id, a.phrase) for a in rulings}
+        open_flags = [f for f in review.unverified if (f.cue_id, f.phrase) not in answered]
+        (out / "subtitle_questions.md").write_text(
+            subtitles.questions_markdown(t, review.model_copy(update={"unverified": open_flags}))
+        )
         errors = [i for i in issues if i.severity.value == "error"]
         r.record.n_items = len(review.corrections)
         r.record.n_failed = len({i.field for i in errors})
         r.record.n_passed = r.record.n_items - r.record.n_failed
         r.record.failure_codes = dict(Counter(i.code for i in errors))
+        r.record.extra = {
+            "unverified": len(review.unverified),
+            "open_questions": len(open_flags),
+            "human_answers": len(rulings),
+        }
         (out / "transcript.reviewed.json").write_text(fixed.model_dump_json(indent=2))
         srt = subtitles.write_srt(fixed, out / "subtitles.reviewed.srt")
     for c in review.corrections:
         console.print(f"  [{c.cue_id}] {c.kind:11} {c.original!r} -> {c.corrected!r}")
     for i in issues:
         console.print(f"  {i.severity.value:7} {i.code:18} {i.message}")
+    for f in open_flags:
+        console.print(f"  [yellow]unverified[/] [{f.cue_id}] {f.phrase!r} (guess: {f.best_guess})")
+    if open_flags:
+        console.print(
+            f"[yellow]{len(open_flags)} question(s) for you:[/] {out / 'subtitle_questions.md'}"
+        )
     console.print(
         f"[green]wrote[/] {srt}  ({r.record.n_passed} corrections applied, "
         f"{r.record.n_failed} rejected, ${r.record.cost_usd:.4f})"
