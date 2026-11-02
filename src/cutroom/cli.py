@@ -1,4 +1,4 @@
-"""`zvc` command line. CLI first, UI second."""
+"""`cutroom` command line. CLI first, UI second."""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 # Eval sets
 
-Each folder here is one eval set. `zvc eval evals/sets/<name>` runs it, and CI runs
+Each folder here is one eval set. `cutroom eval evals/sets/<name>` runs it, and CI runs
 all of them on every push.
 
 | set | source | what it measures |
@@ -10,7 +10,7 @@ all of them on every push.
 
 ## Adding the pilot set
 
-1. `zvc transcribe path/to/video.mp4 --id <video_id>` writes `data/<video_id>/transcript.whisper.json`.
+1. `cutroom transcribe path/to/video.mp4 --id <video_id>` writes `data/<video_id>/transcript.whisper.json`.
 2. Copy that transcript into `evals/sets/pilot_v1/transcript.json` and write a `manifest.yaml`
    (copy the smoke one, set `synthetic: false`, list any spoilers for that video).
 3. Add one YAML file per case under `cases/`: `label: good` for clips you would post as is,

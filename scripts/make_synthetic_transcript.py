@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from zvc_clips.schemas import Segment, Transcript, Word  # noqa: E402
+from cutroom.schemas import Segment, Transcript, Word  # noqa: E402
 
 LINES = [
     (

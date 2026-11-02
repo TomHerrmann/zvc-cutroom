@@ -1,4 +1,4 @@
-# zvc-clips
+# cutroom
 
 A human-in-the-loop pipeline that turns long [Zero Vision Cinema](https://github.com/TomHerrmann/zero-vision-cinema)
 videos into short vertical clips. It finds the strongest moments, drafts captions and covers,
@@ -52,12 +52,12 @@ Resolve.** Resolve is the renderer, not the database.
 
 ```bash
 pip install -e ".[dev]"          # add ,asr for Whisper
-zvc transcribe episode.mp4 --id cronov-e01
-zvc import-srt resolve_export.srt --id cronov-e01 --duration 3600
-zvc crosscheck data/cronov-e01/transcript.whisper.json data/cronov-e01/transcript.resolve.json
-zvc validate my_clips/ -t data/cronov-e01/transcript.whisper.json
-zvc eval evals/sets/synthetic_smoke
-zvc runs
+cutroom transcribe episode.mp4 --id cronov-e01
+cutroom import-srt resolve_export.srt --id cronov-e01 --duration 3600
+cutroom crosscheck data/cronov-e01/transcript.whisper.json data/cronov-e01/transcript.resolve.json
+cutroom validate my_clips/ -t data/cronov-e01/transcript.whisper.json
+cutroom eval evals/sets/synthetic_smoke
+cutroom runs
 ```
 
 ## Development

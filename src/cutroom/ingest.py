@@ -71,7 +71,7 @@ def transcribe_whisper(
     try:
         from faster_whisper import WhisperModel
     except ImportError as e:  # pragma: no cover
-        raise SystemExit("Whisper is an optional extra: pip install 'zvc-clips[asr]'") from e
+        raise SystemExit("Whisper is an optional extra: pip install 'cutroom[asr]'") from e
 
     model = WhisperModel(model_size, device=device, compute_type=compute_type)
     segs, info = model.transcribe(str(audio), word_timestamps=True, vad_filter=True)

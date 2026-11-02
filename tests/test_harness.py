@@ -1,12 +1,12 @@
 from conftest import SMOKE_SET
 from typer.testing import CliRunner
 
-from zvc_clips import runlog
-from zvc_clips.cli import app
-from zvc_clips.evals import run_eval
-from zvc_clips.ingest import crosscheck, load_srt
-from zvc_clips.schemas import ClipStatus, Segment, Transcript, ValidationReport, Word
-from zvc_clips.store import ClipStore
+from cutroom import runlog
+from cutroom.cli import app
+from cutroom.evals import run_eval
+from cutroom.ingest import crosscheck, load_srt
+from cutroom.schemas import ClipStatus, Segment, Transcript, ValidationReport, Word
+from cutroom.store import ClipStore
 
 
 def test_smoke_eval_set_is_fully_correct(rules):

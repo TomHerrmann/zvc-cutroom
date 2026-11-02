@@ -8,8 +8,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from make_synthetic_transcript import build  # noqa: E402
 
-from zvc_clips.config import load_rules  # noqa: E402
-from zvc_clips.schemas import CTA, ClipProposal, CoverCandidate, QuoteRef  # noqa: E402
+from cutroom.config import load_rules  # noqa: E402
+from cutroom.schemas import CTA, ClipProposal, CoverCandidate, QuoteRef  # noqa: E402
 
 SMOKE_SET = ROOT / "evals" / "sets" / "synthetic_smoke"
 

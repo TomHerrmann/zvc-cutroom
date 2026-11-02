@@ -12,4 +12,4 @@ jobs:
       - run: ruff check . && ruff format --check .
       - run: pytest -q
       # Every eval set runs on every change. A regression fails the build.
-      - run: for s in evals/sets/*/; do zvc eval "$s" || exit 1; done
+      - run: for s in evals/sets/*/; do cutroom eval "$s" || exit 1; done

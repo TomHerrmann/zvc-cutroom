@@ -1,9 +1,9 @@
 import pytest
 from pydantic import ValidationError
 
-from zvc_clips.schemas import CTA, ClipProposal, QuoteRef, Word
-from zvc_clips.validators import validate_clip
-from zvc_clips.validators.text import normalize_tokens
+from cutroom.schemas import CTA, ClipProposal, QuoteRef, Word
+from cutroom.validators import validate_clip
+from cutroom.validators.text import normalize_tokens
 
 
 def codes(clip, transcript, rules, spoilers=()):
