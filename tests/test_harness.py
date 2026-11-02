@@ -1,12 +1,12 @@
 from conftest import SMOKE_SET
 from typer.testing import CliRunner
 
-from cutroom import runlog
+from cutroom import runlog, subtitles
 from cutroom.cli import app
 from cutroom.evals import run_eval
-from cutroom.ingest import crosscheck, load_srt
 from cutroom.schemas import ClipStatus, Segment, Transcript, ValidationReport, Word
 from cutroom.store import ClipStore
+from cutroom.subtitles import SubtitleCorrection, SubtitleReview, load_srt, write_srt
 
 
 def test_smoke_eval_set_is_fully_correct(rules):
@@ -17,25 +17,110 @@ def test_smoke_eval_set_is_fully_correct(rules):
     assert res.n_good >= 3 and res.n_bad >= 10
 
 
-def test_crosscheck_counts_errors(transcript):
-    other = transcript.model_copy(deep=True)
-    seg = other.segments[2]
-    seg.words[0] = Word(text="There's", start=seg.words[0].start, end=seg.words[0].end)
-    res = crosscheck(transcript, other, min_words=1)
-    assert res.wer > 0
-    assert res.disagreements[0].reference == "here's"
-    assert crosscheck(transcript, transcript).wer == 0
+SRT = (
+    "1\n00:00:01,000 --> 00:00:02,000\nHello there\n\n"
+    "2\n00:00:02,500 --> 00:00:04,000\nwe watched blade runner\nby riddley scot\n"
+)
+
+
+def _srt_transcript(tmp_path):
+    p = tmp_path / "r.srt"
+    p.write_text(SRT)
+    return load_srt(p, "v", duration=10)
 
 
 def test_load_srt(tmp_path):
-    p = tmp_path / "r.srt"
-    p.write_text(
-        "1\n00:00:01,000 --> 00:00:02,000\nHello there\n\n"
-        "2\n00:00:02,500 --> 00:00:04,000\nGeneral\nKenobi\n"
-    )
-    t = load_srt(p, "v", duration=10)
-    assert [s.text for s in t.segments] == ["Hello there", "General Kenobi"]
+    t = _srt_transcript(tmp_path)
+    assert t.word_timing == "estimated" and t.source == "resolve"
+    assert [s.text for s in t.segments] == [
+        "Hello there",
+        "we watched blade runner by riddley scot",
+    ]
     assert t.words()[1].end == 2.0
+
+
+def test_srt_roundtrip(tmp_path):
+    t = _srt_transcript(tmp_path)
+    out = write_srt(t, tmp_path / "out.srt").read_text()
+    assert "00:00:02,500 --> 00:00:04,000" in out
+    t2 = load_srt(tmp_path / "out.srt", "v", duration=10)
+    assert [(s.start, s.end, s.text) for s in t2.segments] == [
+        (s.start, s.end, s.text) for s in t.segments
+    ]
+
+
+def _fix(cue_id, original, corrected, kind="proper_noun"):
+    return SubtitleCorrection(
+        cue_id=cue_id, original=original, corrected=corrected, kind=kind, reason="r"
+    )
+
+
+def test_apply_review_keeps_timing_and_rejects_bad_corrections(tmp_path):
+    t = _srt_transcript(tmp_path)
+    review = SubtitleReview(
+        corrections=[
+            _fix(
+                1,
+                "we watched blade runner by riddley scot",
+                "we watched Blade Runner by Ridley Scott",
+            ),
+            _fix(0, "Hi there", "Hello there!"),  # original doesn't match the cue
+            _fix(7, "nothing", "something"),  # cue doesn't exist
+        ]
+    )
+    fixed, issues = subtitles.apply_review(t, review)
+    assert {i.code for i in issues} == {"ORIGINAL_MISMATCH", "UNKNOWN_CUE"}
+    assert fixed.segments[1].text == "we watched Blade Runner by Ridley Scott"
+    assert fixed.segments[0].text == "Hello there"  # rejected correction not applied
+    assert [(s.start, s.end) for s in fixed.segments] == [(s.start, s.end) for s in t.segments]
+    assert fixed.source == "resolve_reviewed"
+
+
+def test_large_rewrite_is_flagged(tmp_path):
+    t = _srt_transcript(tmp_path)
+    review = SubtitleReview(corrections=[_fix(0, "Hello there", "General Kenobi, you are bold")])
+    _, issues = subtitles.apply_review(t, review)
+    assert [i.code for i in issues] == ["LARGE_EDIT"]
+
+
+class _FakeUsage:
+    input_tokens = 1000
+    output_tokens = 200
+
+
+class _FakeResponse:
+    model = "claude-opus-5-5"
+    usage = _FakeUsage()
+    stop_reason = "end_turn"
+    parsed_output = SubtitleReview(corrections=[])
+
+
+class _FakeClient:
+    def __init__(self):
+        self.calls = []
+        outer = self
+
+        class _Messages:
+            def parse(self, **kw):
+                outer.calls.append(kw)
+                return _FakeResponse()
+
+        class _Beta:
+            messages = _Messages()
+
+        self.beta = _Beta()
+
+
+def test_review_with_claude_logs_cost_and_sends_glossary(tmp_path):
+    t = _srt_transcript(tmp_path)
+    client = _FakeClient()
+    with runlog.run("t", log_path=tmp_path / "runs.jsonl") as r:
+        subtitles.review_with_claude(t, "claude-opus-5-5", ["Ridley Scott"], run=r, client=client)
+    call = client.calls[0]
+    assert call["output_format"] is SubtitleReview
+    assert "- Ridley Scott" in call["messages"][0]["content"]
+    assert "[1] we watched blade runner" in call["messages"][0]["content"]
+    assert r.record.cost_usd == (1000 * 4 + 200 * 20) / 1_000_000
 
 
 def test_store_roundtrip(tmp_path, good_clip):

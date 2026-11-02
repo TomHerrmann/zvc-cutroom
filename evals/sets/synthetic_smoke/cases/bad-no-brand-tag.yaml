@@ -6,7 +6,7 @@ notes: Missing the required brand hashtag.
 clip:
   id: bad-no-brand-tag
   video_id: synthetic-001
-  platform: reels
+  format: vertical
   start: 40.0
   end: 64.6
   hook: Practical effects age better than CGI, here's why
@@ -32,5 +32,7 @@ clip:
   - frame_time: 53.0
     overlay_text: Feel the weight
     has_face: false
-  aspect_ratio: '9:16'
   created_by: fixture
+  width: 1080
+  height: 1920
+  captions: burned_in

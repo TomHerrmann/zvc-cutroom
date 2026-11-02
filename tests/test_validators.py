@@ -89,9 +89,36 @@ def test_bad_hashtag(good_clip, transcript, rules):
     assert codes(clip, transcript, rules) == ["BAD_HASHTAG"]
 
 
-def test_shorts_caption_limit(good_clip, transcript, rules):
-    clip = good_clip.model_copy(update={"platform": "shorts", "caption": "x" * 101})
+def test_caption_limit(good_clip, transcript, rules):
+    clip = good_clip.model_copy(update={"caption": "x" * 2201})
     assert codes(clip, transcript, rules) == ["CAPTION_TOO_LONG"]
+
+
+def test_vertical_must_be_1080p(good_clip, transcript, rules):
+    clip = good_clip.model_copy(update={"width": 2160, "height": 3840})
+    assert codes(clip, transcript, rules) == ["BAD_RESOLUTION"]
+
+
+def test_brand_subtitle_colors_loaded(rules):
+    assert rules.subtitles.text_color == "#FFFDF6"
+    assert rules.subtitles.highlight_color == "#4A8CC6"
+    assert (rules.formats["wide"].width, rules.formats["wide"].height) == (3840, 2160)
+    assert rules.formats["wide"].captions == "srt"
+    assert rules.formats["vertical"].captions == "burned_in"
+
+
+def test_cue_level_quote_matching_for_srt_transcripts(good_clip, transcript, rules):
+    # Resolve SRT has no word timing: a quote anywhere in an overlapping cue counts,
+    # but it must still be verbatim.
+    est = transcript.model_copy(update={"word_timing": "estimated"})
+    ok = good_clip.model_copy(
+        update={"quotes": [QuoteRef(text="the light is real", start=45.0, end=46.0)]}
+    )
+    bad = good_clip.model_copy(
+        update={"quotes": [QuoteRef(text="the light is fake", start=45.0, end=46.0)]}
+    )
+    assert codes(ok, est, rules) == []
+    assert "QUOTE_NOT_IN_TRANSCRIPT" in codes(bad, est, rules)
 
 
 def test_mid_word_cut_warns(good_clip, transcript, rules):
@@ -106,7 +133,6 @@ def test_schema_rejects_unknown_fields_and_bad_words():
             {
                 "id": "x",
                 "video_id": "v",
-                "platform": "reels",
                 "start": 0,
                 "end": 20,
                 "hook": "h",

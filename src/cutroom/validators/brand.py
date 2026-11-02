@@ -1,5 +1,5 @@
 """Brand checklist: CTA in the first seconds, face + 3-5 words on the cover,
-no spoilers, hashtags and caption within platform rules."""
+no spoilers, hashtags and caption within format rules."""
 
 from __future__ import annotations
 
@@ -118,14 +118,14 @@ def check_brand(clip: ClipProposal, rules: BrandRules, extra_spoilers: list[str]
                 Issue(code="MISSING_REQUIRED_HASHTAG", field="hashtags", message=f"missing {req}")
             )
 
-    # Caption length per platform
-    spec = rules.platforms.get(clip.platform)
+    # Caption length per format
+    spec = rules.formats.get(clip.format)
     if spec and len(clip.caption) > spec.caption_max_chars:
         issues.append(
             Issue(
                 code="CAPTION_TOO_LONG",
                 field="caption",
-                message=f"{len(clip.caption)} chars, {clip.platform} max {spec.caption_max_chars}",
+                message=f"{len(clip.caption)} chars, {clip.format} max {spec.caption_max_chars}",
             )
         )
     if not clip.caption.strip():

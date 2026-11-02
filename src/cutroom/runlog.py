@@ -16,7 +16,11 @@ DEFAULT_LOG = Path("runs/runs.jsonl")
 
 # USD per million tokens. Keep in sync with the provider's price page; the run log
 # stores the computed cost so old runs keep the price they were billed at.
-PRICES_PER_MTOK: dict[str, tuple[float, float]] = {}
+PRICES_PER_MTOK: dict[str, tuple[float, float]] = {
+    "claude-opus-5-5": (4.00, 20.00),
+    "claude-opus-5": (5.00, 25.00),
+    "claude-opus-4-8": (5.00, 25.00),
+}
 
 
 def git_sha() -> str | None:
@@ -41,6 +45,8 @@ class Run:
         if model in PRICES_PER_MTOK:
             pin, pout = PRICES_PER_MTOK[model]
             r.cost_usd += (input_tokens * pin + output_tokens * pout) / 1_000_000
+        else:  # never report $0 for a call we couldn't price
+            r.extra["unpriced_model"] = model
 
     def add_reports(self, reports: list[ValidationReport]) -> None:
         r = self.record

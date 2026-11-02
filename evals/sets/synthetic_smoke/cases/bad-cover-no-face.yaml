@@ -6,7 +6,7 @@ notes: Selected cover frame has no face.
 clip:
   id: bad-cover-no-face
   video_id: synthetic-001
-  platform: reels
+  format: vertical
   start: 40.0
   end: 64.6
   hook: Practical effects age better than CGI, here's why
@@ -30,5 +30,7 @@ clip:
     overlay_text: Feel the weight
     has_face: false
     selected: true
-  aspect_ratio: '9:16'
   created_by: fixture
+  width: 1080
+  height: 1920
+  captions: burned_in

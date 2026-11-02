@@ -33,31 +33,50 @@ def check_timestamps(clip: ClipProposal, transcript: Transcript, rules: BrandRul
             )
         )
 
-    spec = rules.platforms.get(clip.platform)
+    spec = rules.formats.get(clip.format)
     if spec is None:
         issues.append(
             Issue(
-                code="UNKNOWN_PLATFORM",
-                field="platform",
-                message=f"no rules configured for {clip.platform}",
+                code="UNKNOWN_FORMAT",
+                field="format",
+                message=f"no rules configured for {clip.format}",
             )
         )
         return issues
+    # A clip proposal is always short form, and short form is always vertical.
+    if spec.form != "short":
+        issues.append(
+            Issue(
+                code="SHORT_MUST_BE_VERTICAL",
+                field="format",
+                message=f"clips are short form; {clip.format} is the {spec.form}-form format",
+            )
+        )
     if not spec.min_seconds <= clip.duration <= spec.max_seconds:
         issues.append(
             Issue(
                 code="BAD_LENGTH",
                 field="end",
-                message=f"{clip.duration:.1f}s is outside {clip.platform} range "
+                message=f"{clip.duration:.1f}s is outside {clip.format} range "
                 f"{spec.min_seconds}-{spec.max_seconds}s",
             )
         )
-    if clip.aspect_ratio != spec.aspect_ratio:
+    if (clip.width, clip.height) != (spec.width, spec.height):
         issues.append(
             Issue(
-                code="BAD_FORMAT",
-                field="aspect_ratio",
-                message=f"{clip.aspect_ratio} but {clip.platform} needs {spec.aspect_ratio}",
+                code="BAD_RESOLUTION",
+                field="width",
+                message=f"{clip.width}x{clip.height} but {clip.format} renders at "
+                f"{spec.width}x{spec.height} for {spec.platform}",
+            )
+        )
+    if clip.captions != spec.captions:
+        issues.append(
+            Issue(
+                code="BAD_CAPTION_MODE",
+                field="captions",
+                message=f"{clip.format} uses {spec.captions.value} captions, "
+                f"not {clip.captions.value}",
             )
         )
 

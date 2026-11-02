@@ -32,19 +32,42 @@ hashtags:
   max_count: 5
   pattern: "^#[A-Za-z0-9_]+$"
 
-platforms:                       # DRAFT targets, tighter than the platforms' own limits
-  tiktok:
-    aspect_ratio: "9:16"
-    min_seconds: 15
-    max_seconds: 60
+# Two output formats. Vertical is always short form, wide is always long form.
+formats:
+  vertical:
+    platform: tiktok
+    form: short
+    width: 1080
+    height: 1920
+    captions: burned_in          # styled subtitle track burned into the picture
+    min_seconds: 15              # DRAFT
+    max_seconds: 60              # DRAFT
     caption_max_chars: 2200
-  reels:
-    aspect_ratio: "9:16"
-    min_seconds: 15
-    max_seconds: 60
-    caption_max_chars: 2200
-  shorts:
-    aspect_ratio: "9:16"
-    min_seconds: 15
-    max_seconds: 60
-    caption_max_chars: 100        # Shorts title field
+    render:                      # DRAFT preset, used by the Resolve render step (milestone 3)
+      codec: h264
+      target_bitrate_mbps: 16
+  wide:
+    platform: youtube
+    form: long
+    width: 3840
+    height: 2160
+    captions: srt                # plain SRT with timestamps uploaded alongside the video
+    min_seconds: 60              # DRAFT
+    max_seconds: 14400
+    caption_max_chars: 5000
+    render:                      # DRAFT preset
+      codec: h265
+      target_bitrate_mbps: 45
+
+# Subtitles come from DaVinci Resolve Studio's AI transcription, get an accuracy pass
+# from Claude, and go back into Resolve on the subtitle track.
+subtitles:
+  source: resolve
+  review_model: claude-opus-5-5
+  # Colors are the Zero Vision Cinema site tokens (tailwind.config.ts).
+  text_color: "#FFFDF6"          # Glow, the brand off-white
+  highlight_color: "#4A8CC6"     # Blue Light
+  highlight: active_word         # vertical only: the word being spoken is highlighted
+  max_chars_per_line:            # DRAFT
+    vertical: 24
+    wide: 42

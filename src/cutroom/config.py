@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
-from .schemas import Platform
+from .schemas import CaptionMode, Format
 
 DEFAULT_RULES_PATH = Path(__file__).resolve().parents[2] / "config" / "brand_rules.yaml"
 
@@ -44,11 +45,30 @@ class HashtagRules(_Cfg):
     pattern: str = r"^#[A-Za-z0-9_]+$"
 
 
-class PlatformRules(_Cfg):
-    aspect_ratio: str = "9:16"
+class RenderPreset(_Cfg):
+    codec: str
+    target_bitrate_mbps: float
+
+
+class FormatRules(_Cfg):
+    platform: str
+    form: Literal["short", "long"]
+    width: int
+    height: int
+    captions: CaptionMode
     min_seconds: float
     max_seconds: float
     caption_max_chars: int
+    render: RenderPreset
+
+
+class SubtitleRules(_Cfg):
+    source: Literal["resolve"] = "resolve"
+    review_model: str
+    text_color: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
+    highlight_color: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
+    highlight: Literal["active_word", "none"] = "active_word"
+    max_chars_per_line: dict[Format, int]
 
 
 class BrandRules(_Cfg):
@@ -59,7 +79,8 @@ class BrandRules(_Cfg):
     quotes: QuoteRules
     spoilers: SpoilerRules
     hashtags: HashtagRules
-    platforms: dict[Platform, PlatformRules]
+    formats: dict[Format, FormatRules]
+    subtitles: SubtitleRules
     # Set by load_rules; not part of the YAML.
     config_hash: str | None = None
 

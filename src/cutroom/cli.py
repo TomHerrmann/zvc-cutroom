@@ -12,7 +12,7 @@ import yaml
 from rich.console import Console
 from rich.table import Table
 
-from . import ingest
+from . import subtitles
 from .config import load_rules
 from .evals import run_eval, save_result
 from .runlog import git_sha, read_runs, run
@@ -30,60 +30,61 @@ console = Console()
 RulesOpt = typer.Option(None, "--rules", help="Brand rules YAML (default: config/brand_rules.yaml)")
 
 
-@app.command()
-def transcribe(
-    video: Path = typer.Argument(..., exists=True, help="Source video file."),
-    video_id: str = typer.Option(
-        ..., "--id", help="Stable id for this video, e.g. cronov-2026-e01"
-    ),
-    out_dir: Path = typer.Option(Path("data"), help="Where audio + transcript are written."),
-    model: str = typer.Option("large-v3", help="faster-whisper model size."),
-) -> None:
-    """Extract audio with ffmpeg and transcribe with Whisper (word timestamps)."""
-    with run("transcribe") as r:
-        audio = ingest.extract_audio(video, out_dir / video_id / "audio.wav")
-        t = ingest.transcribe_whisper(audio, video_id, model_size=model)
-        p = out_dir / video_id / "transcript.whisper.json"
-        p.write_text(t.model_dump_json(indent=2))
-        r.record.n_items = len(t.segments)
-        r.record.model = t.model
-        r.record.extra = {"duration_s": t.duration, "words": len(t.words())}
-    console.print(f"[green]wrote[/] {p}  ({len(t.segments)} segments, {t.duration:.0f}s)")
-
-
 @app.command("import-srt")
 def import_srt(
-    srt: Path = typer.Argument(..., exists=True, help="Subtitles exported from Resolve."),
-    video_id: str = typer.Option(..., "--id"),
+    srt: Path = typer.Argument(..., exists=True, help="Subtitle track exported from Resolve."),
+    video_id: str = typer.Option(..., "--id", help="Stable id, e.g. cronov-2026-e01"),
     duration: float = typer.Option(..., help="Video duration in seconds."),
     out_dir: Path = typer.Option(Path("data")),
 ) -> None:
-    """Import Resolve's transcription (exported as SRT) for cross-checking."""
-    t = ingest.load_srt(srt, video_id, duration)
+    """Import Resolve's AI subtitles (exported as SRT) as the working transcript."""
+    t = subtitles.load_srt(srt, video_id, duration)
     p = out_dir / video_id / "transcript.resolve.json"
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(t.model_dump_json(indent=2))
     console.print(f"[green]wrote[/] {p}  ({len(t.segments)} cues)")
 
 
-@app.command()
-def crosscheck(
-    reference: Path = typer.Argument(..., exists=True, help="Whisper transcript JSON."),
-    other: Path = typer.Argument(..., exists=True, help="Resolve transcript JSON."),
-    show: int = typer.Option(15, help="How many disagreements to print."),
+@app.command("review-subs")
+def review_subs(
+    transcript: Path = typer.Argument(..., exists=True, help="transcript.resolve.json"),
+    glossary: Path | None = typer.Option(
+        None, exists=True, help="Text file, one name or film title per line."
+    ),
+    review_file: Path | None = typer.Option(
+        None, exists=True, help="Apply a saved review instead of calling Claude."
+    ),
+    rules_path: Path | None = RulesOpt,
 ) -> None:
-    """Compare two transcripts: WER plus the regions where they disagree."""
-    a = Transcript.model_validate_json(reference.read_text())
-    b = Transcript.model_validate_json(other.read_text())
-    with run("crosscheck") as r:
-        res = ingest.crosscheck(a, b)
-        r.record.extra = {"wer": res.wer, "disagreements": len(res.disagreements)}
-    console.print(
-        f"WER {res.wer:.1%} over {res.reference_words} words, "
-        f"{len(res.disagreements)} disagreement regions"
+    """Claude accuracy pass on the subtitles, then write the corrected SRT for Resolve."""
+    rules = load_rules(rules_path)
+    t = Transcript.model_validate_json(transcript.read_text())
+    out = transcript.parent
+    terms = (
+        [ln.strip() for ln in glossary.read_text().splitlines() if ln.strip()] if glossary else []
     )
-    for d in res.disagreements[:show]:
-        console.print(f"  {d.start:7.1f}s  whisper: {d.reference!r}  resolve: {d.other!r}")
+    with run("review-subs", rules.config_hash) as r:
+        if review_file:
+            review = subtitles.SubtitleReview.model_validate_json(review_file.read_text())
+        else:
+            review = subtitles.review_with_claude(t, rules.subtitles.review_model, terms, run=r)
+            (out / "subtitle_review.json").write_text(review.model_dump_json(indent=2))
+        fixed, issues = subtitles.apply_review(t, review)
+        errors = [i for i in issues if i.severity.value == "error"]
+        r.record.n_items = len(review.corrections)
+        r.record.n_failed = len({i.field for i in errors})
+        r.record.n_passed = r.record.n_items - r.record.n_failed
+        r.record.failure_codes = dict(Counter(i.code for i in errors))
+        (out / "transcript.reviewed.json").write_text(fixed.model_dump_json(indent=2))
+        srt = subtitles.write_srt(fixed, out / "subtitles.reviewed.srt")
+    for c in review.corrections:
+        console.print(f"  [{c.cue_id}] {c.kind:11} {c.original!r} -> {c.corrected!r}")
+    for i in issues:
+        console.print(f"  {i.severity.value:7} {i.code:18} {i.message}")
+    console.print(
+        f"[green]wrote[/] {srt}  ({r.record.n_passed} corrections applied, "
+        f"{r.record.n_failed} rejected, ${r.record.cost_usd:.4f})"
+    )
 
 
 @app.command()

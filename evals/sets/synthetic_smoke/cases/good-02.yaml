@@ -5,7 +5,7 @@ notes: Hot take clip with a real quote from the second act section.
 clip:
   id: good-02
   video_id: synthetic-001
-  platform: reels
+  format: vertical
   start: 120.0
   end: 140.0
   hook: The second act drags, fight me
@@ -28,5 +28,7 @@ clip:
     overlay_text: Second act drags
     has_face: true
     selected: true
-  aspect_ratio: '9:16'
   created_by: fixture
+  width: 1080
+  height: 1920
+  captions: burned_in

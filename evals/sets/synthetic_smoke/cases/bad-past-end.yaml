@@ -6,7 +6,7 @@ notes: Cut-out is past the end of the video.
 clip:
   id: bad-past-end
   video_id: synthetic-001
-  platform: reels
+  format: vertical
   start: 280.0
   end: 310.0
   hook: Practical effects age better than CGI, here's why
@@ -27,5 +27,7 @@ clip:
     overlay_text: Practical effects age better
     has_face: true
     selected: true
-  aspect_ratio: '9:16'
   created_by: fixture
+  width: 1080
+  height: 1920
+  captions: burned_in

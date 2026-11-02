@@ -50,10 +50,15 @@ class Transcript(_Model):
     """A timed transcript of one source video."""
 
     video_id: str
-    source: Literal["whisper", "resolve", "manual", "fixture"]
+    # resolve: DaVinci Resolve Studio AI subtitles. resolve_reviewed: after the Claude
+    # accuracy pass has been applied.
+    source: Literal["resolve", "resolve_reviewed", "manual", "fixture"]
     language: str = "en"
     duration: float = Field(gt=0)
     model: str | None = None
+    # SRT cues carry no per-word timing, so word times inside a cue are spread evenly
+    # ("estimated"). Quote lookups then match at cue level instead of word level.
+    word_timing: Literal["exact", "estimated"] = "exact"
     segments: list[Segment]
 
     def words(self) -> list[Word]:
@@ -66,10 +71,14 @@ class Transcript(_Model):
 # --------------------------------------------------------------------------- clips
 
 
-class Platform(StrEnum):
-    TIKTOK = "tiktok"
-    REELS = "reels"
-    SHORTS = "shorts"
+class Format(StrEnum):
+    VERTICAL = "vertical"  # 1080x1920, short form, TikTok, burned-in captions
+    WIDE = "wide"  # 3840x2160, long form, YouTube, SRT sidecar
+
+
+class CaptionMode(StrEnum):
+    BURNED_IN = "burned_in"
+    SRT = "srt"
 
 
 class QuoteRef(_Model):
@@ -122,7 +131,7 @@ class ClipProposal(_Model):
 
     id: str
     video_id: str
-    platform: Platform
+    format: Format = Format.VERTICAL
     start: float = Field(ge=0, description="Cut-in, source-video seconds.")
     end: float = Field(gt=0, description="Cut-out, source-video seconds.")
     hook: str = Field(description="What the first seconds are selling, in one line.")
@@ -132,7 +141,9 @@ class ClipProposal(_Model):
     quotes: list[QuoteRef] = Field(default_factory=list)
     cta: CTA | None = None
     covers: list[CoverCandidate] = Field(default_factory=list)
-    aspect_ratio: str = "9:16"
+    width: int = 1080
+    height: int = 1920
+    captions: CaptionMode = CaptionMode.BURNED_IN
     scores: MomentScores = Field(default_factory=MomentScores)
     status: ClipStatus = ClipStatus.PROPOSED
     created_by: Literal["human", "llm", "fixture"] = "human"

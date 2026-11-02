@@ -10,7 +10,8 @@ all of them on every push.
 
 ## Adding the pilot set
 
-1. `cutroom transcribe path/to/video.mp4 --id <video_id>` writes `data/<video_id>/transcript.whisper.json`.
+1. Export the reviewed subtitles from Resolve, then run `cutroom import-srt` and
+   `cutroom review-subs` to get `data/<video_id>/transcript.reviewed.json`.
 2. Copy that transcript into `evals/sets/pilot_v1/transcript.json` and write a `manifest.yaml`
    (copy the smoke one, set `synthetic: false`, list any spoilers for that video).
 3. Add one YAML file per case under `cases/`: `label: good` for clips you would post as is,

@@ -5,7 +5,7 @@ notes: Spoken CTA that really is in the audio at 3.2s.
 clip:
   id: good-03
   video_id: synthetic-001
-  platform: reels
+  format: vertical
   start: 0.0
   end: 20.0
   hook: A movie nobody remembers and everybody should
@@ -24,5 +24,7 @@ clip:
     overlay_text: A film nobody remembers
     has_face: true
     selected: true
-  aspect_ratio: '9:16'
   created_by: fixture
+  width: 1080
+  height: 1920
+  captions: burned_in

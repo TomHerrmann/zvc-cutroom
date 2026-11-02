@@ -1,12 +1,12 @@
-id: bad-horizontal
+id: bad-srt-on-vertical
 label: bad
 expected_codes:
-- BAD_FORMAT
-notes: Rendered 16:9 for a vertical platform.
+- BAD_CAPTION_MODE
+notes: Vertical clip with a sidecar SRT instead of burned-in captions.
 clip:
-  id: bad-horizontal
+  id: bad-srt-on-vertical
   video_id: synthetic-001
-  platform: reels
+  format: vertical
   start: 40.0
   end: 64.6
   hook: Practical effects age better than CGI, here's why
@@ -33,5 +33,7 @@ clip:
   - frame_time: 53.0
     overlay_text: Feel the weight
     has_face: false
-  aspect_ratio: '16:9'
   created_by: fixture
+  width: 1080
+  height: 1920
+  captions: srt

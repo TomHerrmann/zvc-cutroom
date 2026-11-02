@@ -29,7 +29,6 @@ def good_clip():
     return ClipProposal(
         id="t1",
         video_id="synthetic-001",
-        platform="reels",
         start=40.0,
         end=64.6,
         hook="hook",

@@ -14,9 +14,16 @@ from .text import contains_sequence, normalize_tokens
 def quote_in_transcript(quote: QuoteRef, transcript: Transcript, tolerance: float) -> bool:
     lo, hi = quote.start - tolerance, quote.end + tolerance
     window: list[str] = []
-    for w in transcript.words():
-        if w.end >= lo and w.start <= hi:
-            window += normalize_tokens(w.text)
+    if transcript.word_timing == "exact":
+        for w in transcript.words():
+            if w.end >= lo and w.start <= hi:
+                window += normalize_tokens(w.text)
+    else:
+        # Resolve subtitle cues only have cue-level timing: search every cue that
+        # overlaps the window. The quote still has to be verbatim and contiguous.
+        for seg in transcript.segments:
+            if seg.end >= lo and seg.start <= hi:
+                window += normalize_tokens(seg.text)
     return contains_sequence(window, normalize_tokens(quote.text))
 
 
