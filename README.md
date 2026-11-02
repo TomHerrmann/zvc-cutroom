@@ -67,3 +67,7 @@ pytest -q && ruff check . && ruff format --check .
 ```
 
 CI runs the tests and every eval set on each push. An eval regression fails the build.
+
+## License
+
+MIT

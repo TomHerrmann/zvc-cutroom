@@ -3,6 +3,7 @@ name = "cutroom"
 version = "0.1.0"
 description = "Human-in-the-loop pipeline that turns long Zero Vision Cinema videos into validated short-form clips."
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.7",
