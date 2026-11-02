@@ -1,0 +1,40 @@
+id: bad-invented-quote
+label: bad
+expected_codes:
+- QUOTE_NOT_IN_TRANSCRIPT
+notes: Quote sounds like the speaker but was never said.
+clip:
+  id: bad-invented-quote
+  video_id: synthetic-001
+  format: vertical
+  segments:
+  - start: 40.0
+    end: 64.6
+  hook: Practical effects age better than CGI, here's why
+  caption: Why practical effects still hold up decades later. Part two breaks down the final scene.
+  hashtags:
+  - '#zerovisioncinema'
+  - '#practicaleffects'
+  title_variants:
+  - Practical effects age better
+  - The light is real
+  quotes:
+  - text: Practical effects will always beat CGI.
+    start: 45.0
+    end: 48.0
+  cta:
+    text: Follow for more film breakdowns
+    kind: overlay
+    at: 1.0
+  covers:
+  - frame_time: 46.0
+    overlay_text: Practical effects age better
+    has_face: true
+    selected: true
+  - frame_time: 53.0
+    overlay_text: Feel the weight
+    has_face: false
+  created_by: fixture
+  width: 1080
+  height: 1920
+  captions: burned_in

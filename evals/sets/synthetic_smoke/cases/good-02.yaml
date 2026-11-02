@@ -1,0 +1,35 @@
+id: good-02
+label: good
+expected_codes: []
+notes: Hot take clip with a real quote from the second act section.
+clip:
+  id: good-02
+  video_id: synthetic-001
+  format: vertical
+  segments:
+  - start: 120.0
+    end: 140.0
+  hook: The second act drags, fight me
+  caption: Cut twenty minutes and it's a masterpiece. Agree?
+  hashtags:
+  - '#zerovisioncinema'
+  - '#hottake'
+  title_variants:
+  - The second act drags
+  quotes:
+  - text: Cut twenty minutes and this is a masterpiece.
+    start: 127.0
+    end: 130.2
+  cta:
+    text: Follow for more hot takes
+    kind: overlay
+    at: 0.5
+  covers:
+  - frame_time: 122.0
+    overlay_text: Second act drags
+    has_face: true
+    selected: true
+  created_by: fixture
+  width: 1080
+  height: 1920
+  captions: burned_in

@@ -1,0 +1,68 @@
+id: bad-spoken-outro
+label: bad
+expected_codes:
+- SPOKEN_OUTRO
+notes: Keeps the spoken sign-off the end card replaces.
+clip:
+  id: bad-spoken-outro
+  video_id: synthetic-001
+  format: vertical
+  segments:
+  - start: 39.8
+    end: 50.4
+  - start: 209.8
+    end: 213.9
+  hook: Practical effects age better than CGI, here's why
+  caption: Why practical effects still hold up decades later. Part two breaks down
+    the final scene.
+  hashtags:
+  - '#zerovisioncinema'
+  - '#practicaleffects'
+  title_variants:
+  - Practical effects age better
+  - The light is real
+  quotes:
+  - text: They age better than anything you can render because the light is real.
+    start: 45.0
+    end: 50.2
+  cta:
+    text: Follow for more film breakdowns
+    kind: overlay
+    at: 1.0
+  covers:
+  - frame_time: 46.0
+    overlay_text: Practical effects age better
+    has_face: true
+    selected: true
+  - frame_time: 53.0
+    overlay_text: Feel the weight
+    has_face: false
+  created_by: fixture
+  width: 1080
+  height: 1920
+  captions: burned_in
+  end_card: FULL VIDEO ON YOUTUBE
+video:
+  video_id: synthetic-001
+  silences:
+  - - 39.7
+    - 40.0
+  - - 43.6
+    - 45.0
+  - - 50.2
+    - 52.0
+  - - 56.4
+    - 60.0
+  - - 64.4
+    - 64.8
+  - - 119.7
+    - 120.0
+  - - 124.8
+    - 127.0
+  - - 130.2
+    - 131.0
+  - - 209.7
+    - 210.0
+  - - 213.6
+    - 214.2
+  long_review: Synthetic full review (YouTube)

@@ -1,0 +1,37 @@
+id: bad-missing-cta
+label: bad
+expected_codes:
+- MISSING_CTA
+notes: No CTA at all.
+clip:
+  id: bad-missing-cta
+  video_id: synthetic-001
+  format: vertical
+  segments:
+  - start: 40.0
+    end: 64.6
+  hook: Practical effects age better than CGI, here's why
+  caption: Why practical effects still hold up decades later. Part two breaks down the final scene.
+  hashtags:
+  - '#zerovisioncinema'
+  - '#practicaleffects'
+  title_variants:
+  - Practical effects age better
+  - The light is real
+  quotes:
+  - text: They age better than anything you can render because the light is real.
+    start: 45.0
+    end: 50.2
+  cta: null
+  covers:
+  - frame_time: 46.0
+    overlay_text: Practical effects age better
+    has_face: true
+    selected: true
+  - frame_time: 53.0
+    overlay_text: Feel the weight
+    has_face: false
+  created_by: fixture
+  width: 1080
+  height: 1920
+  captions: burned_in

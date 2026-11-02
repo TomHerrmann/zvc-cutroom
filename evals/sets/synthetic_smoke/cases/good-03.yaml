@@ -1,0 +1,31 @@
+id: good-03
+label: good
+expected_codes: []
+notes: Spoken CTA that really is in the audio at 3.2s.
+clip:
+  id: good-03
+  video_id: synthetic-001
+  format: vertical
+  segments:
+  - start: 0.0
+    end: 20.0
+  hook: A movie nobody remembers and everybody should
+  caption: 'Every week we dig into a film. Tonight: one nobody remembers.'
+  hashtags:
+  - '#zerovisioncinema'
+  title_variants:
+  - A film nobody remembers
+  quotes: []
+  cta:
+    text: hit follow
+    kind: spoken
+    at: 3.2
+  covers:
+  - frame_time: 10.0
+    overlay_text: A film nobody remembers
+    has_face: true
+    selected: true
+  created_by: fixture
+  width: 1080
+  height: 1920
+  captions: burned_in

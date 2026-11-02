@@ -1,0 +1,7 @@
+name: synthetic_smoke
+description: >
+  Invented transcript and hand-written cases that exercise each guardrail once.
+  A regression suite for the validators, not evidence of clip quality.
+synthetic: true
+transcript: transcript.json
+spoilers: ["narrator was dead"]
