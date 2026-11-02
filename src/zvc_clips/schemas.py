@@ -1,0 +1,203 @@
+"""Typed data model for the whole pipeline.
+
+Every stage reads and writes these objects. Nothing downstream ever consumes
+free-form model text: LLM output is parsed into these models and anything that
+does not parse is rejected before a validator ever sees it.
+
+Times are always seconds as floats, measured from the start of the source video
+unless a field says otherwise.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class _Model(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+# --------------------------------------------------------------------------- transcript
+
+
+class Word(_Model):
+    text: str
+    start: float = Field(ge=0)
+    end: float = Field(ge=0)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _ordered(self) -> Word:
+        if self.end < self.start:
+            raise ValueError(f"word {self.text!r} ends before it starts")
+        return self
+
+
+class Segment(_Model):
+    id: int
+    start: float = Field(ge=0)
+    end: float = Field(ge=0)
+    text: str
+    speaker: str | None = None
+    words: list[Word] = Field(default_factory=list)
+
+
+class Transcript(_Model):
+    """A timed transcript of one source video."""
+
+    video_id: str
+    source: Literal["whisper", "resolve", "manual", "fixture"]
+    language: str = "en"
+    duration: float = Field(gt=0)
+    model: str | None = None
+    segments: list[Segment]
+
+    def words(self) -> list[Word]:
+        return [w for s in self.segments for w in s.words]
+
+    def text_between(self, start: float, end: float) -> str:
+        return " ".join(w.text for w in self.words() if w.start >= start and w.end <= end)
+
+
+# --------------------------------------------------------------------------- clips
+
+
+class Platform(StrEnum):
+    TIKTOK = "tiktok"
+    REELS = "reels"
+    SHORTS = "shorts"
+
+
+class QuoteRef(_Model):
+    """A verbatim quote with the timestamp where it is claimed to be spoken."""
+
+    text: str = Field(min_length=1)
+    start: float = Field(ge=0)
+    end: float = Field(ge=0)
+
+
+class CTA(_Model):
+    text: str = Field(min_length=1)
+    kind: Literal["spoken", "overlay"]
+    # Seconds from the start of the *clip*, not the source video.
+    at: float = Field(ge=0)
+
+
+class CoverCandidate(_Model):
+    frame_time: float = Field(ge=0, description="Source-video time of the frame.")
+    overlay_text: str
+    # None means nobody (human or detector) has checked yet. Unverified fails the check.
+    has_face: bool | None = None
+    selected: bool = False
+
+
+class MomentScores(_Model):
+    """Per-signal scores in [0, 1]. Filled by the ranker in milestone 2."""
+
+    hook: float | None = Field(default=None, ge=0, le=1)
+    face_on_screen: float | None = Field(default=None, ge=0, le=1)
+    quote_punch: float | None = Field(default=None, ge=0, le=1)
+    length_fit: float | None = Field(default=None, ge=0, le=1)
+    theme: float | None = Field(default=None, ge=0, le=1)
+
+
+class ClipStatus(StrEnum):
+    PROPOSED = "proposed"
+    REJECTED_BY_VALIDATOR = "rejected_by_validator"
+    PENDING_REVIEW = "pending_review"
+    APPROVED = "approved"
+    REJECTED_BY_HUMAN = "rejected_by_human"
+    POSTED = "posted"
+
+
+class ClipProposal(_Model):
+    """One proposed short clip. This is the edit decision that Resolve renders.
+
+    It lives in the clip store, never only in a Resolve project.
+    """
+
+    id: str
+    video_id: str
+    platform: Platform
+    start: float = Field(ge=0, description="Cut-in, source-video seconds.")
+    end: float = Field(gt=0, description="Cut-out, source-video seconds.")
+    hook: str = Field(description="What the first seconds are selling, in one line.")
+    caption: str
+    hashtags: list[str] = Field(default_factory=list)
+    title_variants: list[str] = Field(default_factory=list)
+    quotes: list[QuoteRef] = Field(default_factory=list)
+    cta: CTA | None = None
+    covers: list[CoverCandidate] = Field(default_factory=list)
+    aspect_ratio: str = "9:16"
+    scores: MomentScores = Field(default_factory=MomentScores)
+    status: ClipStatus = ClipStatus.PROPOSED
+    created_by: Literal["human", "llm", "fixture"] = "human"
+
+    @property
+    def duration(self) -> float:
+        return self.end - self.start
+
+    def selected_cover(self) -> CoverCandidate | None:
+        chosen = [c for c in self.covers if c.selected]
+        return chosen[0] if chosen else None
+
+
+# --------------------------------------------------------------------------- validation
+
+
+class Severity(StrEnum):
+    ERROR = "error"  # clip is rejected
+    WARNING = "warning"  # clip passes but the reviewer sees the note
+
+
+class Issue(_Model):
+    code: str = Field(description="Stable machine code, e.g. QUOTE_NOT_IN_TRANSCRIPT.")
+    message: str
+    severity: Severity = Severity.ERROR
+    field: str | None = None
+
+
+class ValidationReport(_Model):
+    clip_id: str
+    issues: list[Issue] = Field(default_factory=list)
+
+    @property
+    def passed(self) -> bool:
+        return not any(i.severity == Severity.ERROR for i in self.issues)
+
+    @property
+    def error_codes(self) -> list[str]:
+        return sorted({i.code for i in self.issues if i.severity == Severity.ERROR})
+
+
+# --------------------------------------------------------------------------- runs
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+class RunRecord(_Model):
+    """One line in runs/runs.jsonl. Written for every pipeline or eval run."""
+
+    run_id: str
+    command: str
+    started_at: datetime = Field(default_factory=_now)
+    latency_ms: float = 0.0
+    git_sha: str | None = None
+    config_hash: str | None = None
+    model: str | None = None
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float = 0.0
+    n_items: int = 0
+    n_passed: int = 0
+    n_failed: int = 0
+    failure_codes: dict[str, int] = Field(default_factory=dict)
+    extra: dict[str, object] = Field(default_factory=dict)
+    ok: bool = True
+    error: str | None = None

@@ -1,0 +1,50 @@
+# Zero Vision Cinema brand rules.
+# Validators read this file; prompts are generated from it. Change a rule here,
+# not in a prompt string. Values marked DRAFT are starting points to confirm.
+
+brand: Zero Vision Cinema
+version: 1
+
+cta:
+  required: true
+  max_start_seconds: 5.0        # CTA must begin within the first 5 seconds of the clip
+  allowed_kinds: [spoken, overlay]
+
+cover:
+  require_face: true
+  min_words: 3
+  max_words: 5
+
+quotes:
+  # Seconds of slack allowed around a quote's claimed timestamp when looking it up.
+  timestamp_tolerance_seconds: 1.0
+  # Exact match after normalisation (case, punctuation, whitespace). No fuzzy matching:
+  # a quote that is not in the transcript is an invented quote.
+  match: exact_normalized
+
+spoilers:
+  # Terms that must never appear in caption, titles, hashtags, or cover text. DRAFT.
+  banned_terms: []
+  # Per-video additions live in the video's sidecar file (data/<video_id>/spoilers.yaml).
+
+hashtags:
+  required: ["#zerovisioncinema"]   # DRAFT
+  max_count: 5
+  pattern: "^#[A-Za-z0-9_]+$"
+
+platforms:                       # DRAFT targets, tighter than the platforms' own limits
+  tiktok:
+    aspect_ratio: "9:16"
+    min_seconds: 15
+    max_seconds: 60
+    caption_max_chars: 2200
+  reels:
+    aspect_ratio: "9:16"
+    min_seconds: 15
+    max_seconds: 60
+    caption_max_chars: 2200
+  shorts:
+    aspect_ratio: "9:16"
+    min_seconds: 15
+    max_seconds: 60
+    caption_max_chars: 100        # Shorts title field

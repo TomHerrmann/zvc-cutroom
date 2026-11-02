@@ -1,0 +1,31 @@
+id: bad-past-end
+label: bad
+expected_codes:
+- BAD_TIMESTAMP
+notes: Cut-out is past the end of the video.
+clip:
+  id: bad-past-end
+  video_id: synthetic-001
+  platform: reels
+  start: 280.0
+  end: 310.0
+  hook: Practical effects age better than CGI, here's why
+  caption: Why practical effects still hold up decades later. Part two breaks down the final scene.
+  hashtags:
+  - '#zerovisioncinema'
+  - '#practicaleffects'
+  title_variants:
+  - Practical effects age better
+  - The light is real
+  quotes: []
+  cta:
+    text: Follow for more film breakdowns
+    kind: overlay
+    at: 1.0
+  covers:
+  - frame_time: 290.0
+    overlay_text: Practical effects age better
+    has_face: true
+    selected: true
+  aspect_ratio: '9:16'
+  created_by: fixture

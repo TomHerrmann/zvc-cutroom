@@ -1,0 +1,37 @@
+id: bad-fake-spoken-cta
+label: bad
+expected_codes:
+- CTA_NOT_SPOKEN
+notes: Claims a spoken CTA the speaker never says.
+clip:
+  id: bad-fake-spoken-cta
+  video_id: synthetic-001
+  platform: reels
+  start: 40.0
+  end: 64.6
+  hook: Practical effects age better than CGI, here's why
+  caption: Why practical effects still hold up decades later. Part two breaks down the final scene.
+  hashtags:
+  - '#zerovisioncinema'
+  - '#practicaleffects'
+  title_variants:
+  - Practical effects age better
+  - The light is real
+  quotes:
+  - text: They age better than anything you can render because the light is real.
+    start: 45.0
+    end: 50.2
+  cta:
+    text: smash that like button
+    kind: spoken
+    at: 1.0
+  covers:
+  - frame_time: 46.0
+    overlay_text: Practical effects age better
+    has_face: true
+    selected: true
+  - frame_time: 53.0
+    overlay_text: Feel the weight
+    has_face: false
+  aspect_ratio: '9:16'
+  created_by: fixture

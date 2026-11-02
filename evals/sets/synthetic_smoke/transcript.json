@@ -1,0 +1,783 @@
+{
+  "video_id": "synthetic-001",
+  "source": "fixture",
+  "language": "en",
+  "duration": 300.0,
+  "model": null,
+  "segments": [
+    {
+      "id": 0,
+      "start": 0.0,
+      "end": 7.2,
+      "text": "Welcome back to the channel, if you're new hit follow because every week we dig into a film.",
+      "speaker": null,
+      "words": [
+        {
+          "text": "Welcome",
+          "start": 0.0,
+          "end": 0.4,
+          "confidence": null
+        },
+        {
+          "text": "back",
+          "start": 0.4,
+          "end": 0.8,
+          "confidence": null
+        },
+        {
+          "text": "to",
+          "start": 0.8,
+          "end": 1.2,
+          "confidence": null
+        },
+        {
+          "text": "the",
+          "start": 1.2,
+          "end": 1.6,
+          "confidence": null
+        },
+        {
+          "text": "channel,",
+          "start": 1.6,
+          "end": 2.0,
+          "confidence": null
+        },
+        {
+          "text": "if",
+          "start": 2.0,
+          "end": 2.4,
+          "confidence": null
+        },
+        {
+          "text": "you're",
+          "start": 2.4,
+          "end": 2.8,
+          "confidence": null
+        },
+        {
+          "text": "new",
+          "start": 2.8,
+          "end": 3.2,
+          "confidence": null
+        },
+        {
+          "text": "hit",
+          "start": 3.2,
+          "end": 3.6,
+          "confidence": null
+        },
+        {
+          "text": "follow",
+          "start": 3.6,
+          "end": 4.0,
+          "confidence": null
+        },
+        {
+          "text": "because",
+          "start": 4.0,
+          "end": 4.4,
+          "confidence": null
+        },
+        {
+          "text": "every",
+          "start": 4.4,
+          "end": 4.8,
+          "confidence": null
+        },
+        {
+          "text": "week",
+          "start": 4.8,
+          "end": 5.2,
+          "confidence": null
+        },
+        {
+          "text": "we",
+          "start": 5.2,
+          "end": 5.6,
+          "confidence": null
+        },
+        {
+          "text": "dig",
+          "start": 5.6,
+          "end": 6.0,
+          "confidence": null
+        },
+        {
+          "text": "into",
+          "start": 6.0,
+          "end": 6.4,
+          "confidence": null
+        },
+        {
+          "text": "a",
+          "start": 6.4,
+          "end": 6.8,
+          "confidence": null
+        },
+        {
+          "text": "film.",
+          "start": 6.8,
+          "end": 7.2,
+          "confidence": null
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "start": 8.0,
+      "end": 12.8,
+      "text": "Tonight we are talking about a movie nobody remembers and everybody should.",
+      "speaker": null,
+      "words": [
+        {
+          "text": "Tonight",
+          "start": 8.0,
+          "end": 8.4,
+          "confidence": null
+        },
+        {
+          "text": "we",
+          "start": 8.4,
+          "end": 8.8,
+          "confidence": null
+        },
+        {
+          "text": "are",
+          "start": 8.8,
+          "end": 9.2,
+          "confidence": null
+        },
+        {
+          "text": "talking",
+          "start": 9.2,
+          "end": 9.6,
+          "confidence": null
+        },
+        {
+          "text": "about",
+          "start": 9.6,
+          "end": 10.0,
+          "confidence": null
+        },
+        {
+          "text": "a",
+          "start": 10.0,
+          "end": 10.4,
+          "confidence": null
+        },
+        {
+          "text": "movie",
+          "start": 10.4,
+          "end": 10.8,
+          "confidence": null
+        },
+        {
+          "text": "nobody",
+          "start": 10.8,
+          "end": 11.2,
+          "confidence": null
+        },
+        {
+          "text": "remembers",
+          "start": 11.2,
+          "end": 11.6,
+          "confidence": null
+        },
+        {
+          "text": "and",
+          "start": 11.6,
+          "end": 12.0,
+          "confidence": null
+        },
+        {
+          "text": "everybody",
+          "start": 12.0,
+          "end": 12.4,
+          "confidence": null
+        },
+        {
+          "text": "should.",
+          "start": 12.4,
+          "end": 12.8,
+          "confidence": null
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "start": 40.0,
+      "end": 43.6,
+      "text": "Here's the thing nobody tells you about practical effects.",
+      "speaker": null,
+      "words": [
+        {
+          "text": "Here's",
+          "start": 40.0,
+          "end": 40.4,
+          "confidence": null
+        },
+        {
+          "text": "the",
+          "start": 40.4,
+          "end": 40.8,
+          "confidence": null
+        },
+        {
+          "text": "thing",
+          "start": 40.8,
+          "end": 41.2,
+          "confidence": null
+        },
+        {
+          "text": "nobody",
+          "start": 41.2,
+          "end": 41.6,
+          "confidence": null
+        },
+        {
+          "text": "tells",
+          "start": 41.6,
+          "end": 42.0,
+          "confidence": null
+        },
+        {
+          "text": "you",
+          "start": 42.0,
+          "end": 42.4,
+          "confidence": null
+        },
+        {
+          "text": "about",
+          "start": 42.4,
+          "end": 42.8,
+          "confidence": null
+        },
+        {
+          "text": "practical",
+          "start": 42.8,
+          "end": 43.2,
+          "confidence": null
+        },
+        {
+          "text": "effects.",
+          "start": 43.2,
+          "end": 43.6,
+          "confidence": null
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "start": 45.0,
+      "end": 50.2,
+      "text": "They age better than anything you can render because the light is real.",
+      "speaker": null,
+      "words": [
+        {
+          "text": "They",
+          "start": 45.0,
+          "end": 45.4,
+          "confidence": null
+        },
+        {
+          "text": "age",
+          "start": 45.4,
+          "end": 45.8,
+          "confidence": null
+        },
+        {
+          "text": "better",
+          "start": 45.8,
+          "end": 46.2,
+          "confidence": null
+        },
+        {
+          "text": "than",
+          "start": 46.2,
+          "end": 46.6,
+          "confidence": null
+        },
+        {
+          "text": "anything",
+          "start": 46.6,
+          "end": 47.0,
+          "confidence": null
+        },
+        {
+          "text": "you",
+          "start": 47.0,
+          "end": 47.4,
+          "confidence": null
+        },
+        {
+          "text": "can",
+          "start": 47.4,
+          "end": 47.8,
+          "confidence": null
+        },
+        {
+          "text": "render",
+          "start": 47.8,
+          "end": 48.2,
+          "confidence": null
+        },
+        {
+          "text": "because",
+          "start": 48.2,
+          "end": 48.6,
+          "confidence": null
+        },
+        {
+          "text": "the",
+          "start": 48.6,
+          "end": 49.0,
+          "confidence": null
+        },
+        {
+          "text": "light",
+          "start": 49.0,
+          "end": 49.4,
+          "confidence": null
+        },
+        {
+          "text": "is",
+          "start": 49.4,
+          "end": 49.8,
+          "confidence": null
+        },
+        {
+          "text": "real.",
+          "start": 49.8,
+          "end": 50.2,
+          "confidence": null
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "start": 52.0,
+      "end": 56.4,
+      "text": "You can feel the weight of the thing in the room.",
+      "speaker": null,
+      "words": [
+        {
+          "text": "You",
+          "start": 52.0,
+          "end": 52.4,
+          "confidence": null
+        },
+        {
+          "text": "can",
+          "start": 52.4,
+          "end": 52.8,
+          "confidence": null
+        },
+        {
+          "text": "feel",
+          "start": 52.8,
+          "end": 53.2,
+          "confidence": null
+        },
+        {
+          "text": "the",
+          "start": 53.2,
+          "end": 53.6,
+          "confidence": null
+        },
+        {
+          "text": "weight",
+          "start": 53.6,
+          "end": 54.0,
+          "confidence": null
+        },
+        {
+          "text": "of",
+          "start": 54.0,
+          "end": 54.4,
+          "confidence": null
+        },
+        {
+          "text": "the",
+          "start": 54.4,
+          "end": 54.8,
+          "confidence": null
+        },
+        {
+          "text": "thing",
+          "start": 54.8,
+          "end": 55.2,
+          "confidence": null
+        },
+        {
+          "text": "in",
+          "start": 55.2,
+          "end": 55.6,
+          "confidence": null
+        },
+        {
+          "text": "the",
+          "start": 55.6,
+          "end": 56.0,
+          "confidence": null
+        },
+        {
+          "text": "room.",
+          "start": 56.0,
+          "end": 56.4,
+          "confidence": null
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "start": 60.0,
+      "end": 64.4,
+      "text": "Follow for part two where we break down the final scene.",
+      "speaker": null,
+      "words": [
+        {
+          "text": "Follow",
+          "start": 60.0,
+          "end": 60.4,
+          "confidence": null
+        },
+        {
+          "text": "for",
+          "start": 60.4,
+          "end": 60.8,
+          "confidence": null
+        },
+        {
+          "text": "part",
+          "start": 60.8,
+          "end": 61.2,
+          "confidence": null
+        },
+        {
+          "text": "two",
+          "start": 61.2,
+          "end": 61.6,
+          "confidence": null
+        },
+        {
+          "text": "where",
+          "start": 61.6,
+          "end": 62.0,
+          "confidence": null
+        },
+        {
+          "text": "we",
+          "start": 62.0,
+          "end": 62.4,
+          "confidence": null
+        },
+        {
+          "text": "break",
+          "start": 62.4,
+          "end": 62.8,
+          "confidence": null
+        },
+        {
+          "text": "down",
+          "start": 62.8,
+          "end": 63.2,
+          "confidence": null
+        },
+        {
+          "text": "the",
+          "start": 63.2,
+          "end": 63.6,
+          "confidence": null
+        },
+        {
+          "text": "final",
+          "start": 63.6,
+          "end": 64.0,
+          "confidence": null
+        },
+        {
+          "text": "scene.",
+          "start": 64.0,
+          "end": 64.4,
+          "confidence": null
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "start": 120.0,
+      "end": 124.8,
+      "text": "Honestly the second act drags and I will die on that hill.",
+      "speaker": null,
+      "words": [
+        {
+          "text": "Honestly",
+          "start": 120.0,
+          "end": 120.4,
+          "confidence": null
+        },
+        {
+          "text": "the",
+          "start": 120.4,
+          "end": 120.8,
+          "confidence": null
+        },
+        {
+          "text": "second",
+          "start": 120.8,
+          "end": 121.2,
+          "confidence": null
+        },
+        {
+          "text": "act",
+          "start": 121.2,
+          "end": 121.6,
+          "confidence": null
+        },
+        {
+          "text": "drags",
+          "start": 121.6,
+          "end": 122.0,
+          "confidence": null
+        },
+        {
+          "text": "and",
+          "start": 122.0,
+          "end": 122.4,
+          "confidence": null
+        },
+        {
+          "text": "I",
+          "start": 122.4,
+          "end": 122.8,
+          "confidence": null
+        },
+        {
+          "text": "will",
+          "start": 122.8,
+          "end": 123.2,
+          "confidence": null
+        },
+        {
+          "text": "die",
+          "start": 123.2,
+          "end": 123.6,
+          "confidence": null
+        },
+        {
+          "text": "on",
+          "start": 123.6,
+          "end": 124.0,
+          "confidence": null
+        },
+        {
+          "text": "that",
+          "start": 124.0,
+          "end": 124.4,
+          "confidence": null
+        },
+        {
+          "text": "hill.",
+          "start": 124.4,
+          "end": 124.8,
+          "confidence": null
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "start": 127.0,
+      "end": 130.2,
+      "text": "Cut twenty minutes and this is a masterpiece.",
+      "speaker": null,
+      "words": [
+        {
+          "text": "Cut",
+          "start": 127.0,
+          "end": 127.4,
+          "confidence": null
+        },
+        {
+          "text": "twenty",
+          "start": 127.4,
+          "end": 127.8,
+          "confidence": null
+        },
+        {
+          "text": "minutes",
+          "start": 127.8,
+          "end": 128.2,
+          "confidence": null
+        },
+        {
+          "text": "and",
+          "start": 128.2,
+          "end": 128.6,
+          "confidence": null
+        },
+        {
+          "text": "this",
+          "start": 128.6,
+          "end": 129.0,
+          "confidence": null
+        },
+        {
+          "text": "is",
+          "start": 129.0,
+          "end": 129.4,
+          "confidence": null
+        },
+        {
+          "text": "a",
+          "start": 129.4,
+          "end": 129.8,
+          "confidence": null
+        },
+        {
+          "text": "masterpiece.",
+          "start": 129.8,
+          "end": 130.2,
+          "confidence": null
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "start": 200.0,
+      "end": 204.4,
+      "text": "The twist is that the narrator was dead the whole time.",
+      "speaker": null,
+      "words": [
+        {
+          "text": "The",
+          "start": 200.0,
+          "end": 200.4,
+          "confidence": null
+        },
+        {
+          "text": "twist",
+          "start": 200.4,
+          "end": 200.8,
+          "confidence": null
+        },
+        {
+          "text": "is",
+          "start": 200.8,
+          "end": 201.2,
+          "confidence": null
+        },
+        {
+          "text": "that",
+          "start": 201.2,
+          "end": 201.6,
+          "confidence": null
+        },
+        {
+          "text": "the",
+          "start": 201.6,
+          "end": 202.0,
+          "confidence": null
+        },
+        {
+          "text": "narrator",
+          "start": 202.0,
+          "end": 202.4,
+          "confidence": null
+        },
+        {
+          "text": "was",
+          "start": 202.4,
+          "end": 202.8,
+          "confidence": null
+        },
+        {
+          "text": "dead",
+          "start": 202.8,
+          "end": 203.2,
+          "confidence": null
+        },
+        {
+          "text": "the",
+          "start": 203.2,
+          "end": 203.6,
+          "confidence": null
+        },
+        {
+          "text": "whole",
+          "start": 203.6,
+          "end": 204.0,
+          "confidence": null
+        },
+        {
+          "text": "time.",
+          "start": 204.0,
+          "end": 204.4,
+          "confidence": null
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "start": 210.0,
+      "end": 213.6,
+      "text": "Anyway that is all for tonight, thanks for watching.",
+      "speaker": null,
+      "words": [
+        {
+          "text": "Anyway",
+          "start": 210.0,
+          "end": 210.4,
+          "confidence": null
+        },
+        {
+          "text": "that",
+          "start": 210.4,
+          "end": 210.8,
+          "confidence": null
+        },
+        {
+          "text": "is",
+          "start": 210.8,
+          "end": 211.2,
+          "confidence": null
+        },
+        {
+          "text": "all",
+          "start": 211.2,
+          "end": 211.6,
+          "confidence": null
+        },
+        {
+          "text": "for",
+          "start": 211.6,
+          "end": 212.0,
+          "confidence": null
+        },
+        {
+          "text": "tonight,",
+          "start": 212.0,
+          "end": 212.4,
+          "confidence": null
+        },
+        {
+          "text": "thanks",
+          "start": 212.4,
+          "end": 212.8,
+          "confidence": null
+        },
+        {
+          "text": "for",
+          "start": 212.8,
+          "end": 213.2,
+          "confidence": null
+        },
+        {
+          "text": "watching.",
+          "start": 213.2,
+          "end": 213.6,
+          "confidence": null
+        }
+      ]
+    }
+  ]
+}

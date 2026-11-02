@@ -1,0 +1,34 @@
+id: bad-cover-no-face
+label: bad
+expected_codes:
+- COVER_NO_FACE
+notes: Selected cover frame has no face.
+clip:
+  id: bad-cover-no-face
+  video_id: synthetic-001
+  platform: reels
+  start: 40.0
+  end: 64.6
+  hook: Practical effects age better than CGI, here's why
+  caption: Why practical effects still hold up decades later. Part two breaks down the final scene.
+  hashtags:
+  - '#zerovisioncinema'
+  - '#practicaleffects'
+  title_variants:
+  - Practical effects age better
+  - The light is real
+  quotes:
+  - text: They age better than anything you can render because the light is real.
+    start: 45.0
+    end: 50.2
+  cta:
+    text: Follow for more film breakdowns
+    kind: overlay
+    at: 1.0
+  covers:
+  - frame_time: 53.0
+    overlay_text: Feel the weight
+    has_face: false
+    selected: true
+  aspect_ratio: '9:16'
+  created_by: fixture

@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+# media and per-run artifacts stay local
+data/
+*.wav
+*.mp4
+*.mov
+runs/*.jsonl
