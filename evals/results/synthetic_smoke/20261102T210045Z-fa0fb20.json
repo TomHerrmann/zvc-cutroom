@@ -1,0 +1,575 @@
+{
+  "set_name": "synthetic_smoke",
+  "synthetic": true,
+  "run_at": "2026-11-02T21:00:45.868325Z",
+  "git_sha": "fa0fb20",
+  "config_hash": "07b914284b1f",
+  "n_cases": 24,
+  "n_good": 4,
+  "n_bad": 20,
+  "accuracy": 1.0,
+  "good_pass_rate": 1.0,
+  "bad_catch_rate": 1.0,
+  "reason_accuracy": 1.0,
+  "cases": [
+    {
+      "id": "bad-cover-no-face",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "COVER_NO_FACE"
+      ],
+      "got_codes": [
+        "COVER_NO_FACE"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-cover-no-face",
+        "issues": [
+          {
+            "code": "COVER_NO_FACE",
+            "message": "cover face check failed (no face)",
+            "severity": "error",
+            "field": "covers"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-cover-wordy",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "COVER_WORD_COUNT"
+      ],
+      "got_codes": [
+        "COVER_WORD_COUNT"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-cover-wordy",
+        "issues": [
+          {
+            "code": "COVER_WORD_COUNT",
+            "message": "cover text has 8 words, needs 3-5",
+            "severity": "error",
+            "field": "covers"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-cta-late",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "CTA_TOO_LATE"
+      ],
+      "got_codes": [
+        "CTA_TOO_LATE"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-cta-late",
+        "issues": [
+          {
+            "code": "CTA_TOO_LATE",
+            "message": "CTA starts at 8.0s, must be within 5s",
+            "severity": "error",
+            "field": "cta.at"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-end-card-no-review",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "END_CARD_WITHOUT_LONG_REVIEW"
+      ],
+      "got_codes": [
+        "END_CARD_WITHOUT_LONG_REVIEW"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-end-card-no-review",
+        "issues": [
+          {
+            "code": "END_CARD_WITHOUT_LONG_REVIEW",
+            "message": "end card points to a full review, but none is recorded for this video",
+            "severity": "error",
+            "field": "end_card"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-fake-spoken-cta",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "CTA_NOT_SPOKEN"
+      ],
+      "got_codes": [
+        "CTA_NOT_SPOKEN"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-fake-spoken-cta",
+        "issues": [
+          {
+            "code": "CTA_NOT_SPOKEN",
+            "message": "spoken CTA 'smash that like button' not found at 1.0s into the clip",
+            "severity": "error",
+            "field": "cta"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-horizontal-1080p",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "BAD_RESOLUTION"
+      ],
+      "got_codes": [
+        "BAD_RESOLUTION"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-horizontal-1080p",
+        "issues": [
+          {
+            "code": "BAD_RESOLUTION",
+            "message": "1920x1080 but vertical renders at 1080x1920 for tiktok",
+            "severity": "error",
+            "field": "width"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-invented-quote",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "QUOTE_NOT_IN_TRANSCRIPT"
+      ],
+      "got_codes": [
+        "QUOTE_NOT_IN_TRANSCRIPT"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-invented-quote",
+        "issues": [
+          {
+            "code": "QUOTE_NOT_IN_TRANSCRIPT",
+            "message": "'Practical effects will always beat CGI.' not found in transcript near 45.0-48.0s",
+            "severity": "error",
+            "field": "quotes[0]"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-missing-cta",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "MISSING_CTA"
+      ],
+      "got_codes": [
+        "MISSING_CTA"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-missing-cta",
+        "issues": [
+          {
+            "code": "MISSING_CTA",
+            "message": "clip has no CTA",
+            "severity": "error",
+            "field": "cta"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-missing-end-card",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "MISSING_END_CARD"
+      ],
+      "got_codes": [
+        "MISSING_END_CARD"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-missing-end-card",
+        "issues": [
+          {
+            "code": "MISSING_END_CARD",
+            "message": "a longer review exists; end on the ZVC Topic Label Slam",
+            "severity": "error",
+            "field": "end_card"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-no-brand-tag",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "MISSING_REQUIRED_HASHTAG"
+      ],
+      "got_codes": [
+        "MISSING_REQUIRED_HASHTAG"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-no-brand-tag",
+        "issues": [
+          {
+            "code": "MISSING_REQUIRED_HASHTAG",
+            "message": "missing #zerovisioncinema",
+            "severity": "error",
+            "field": "hashtags"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-overlapping-segments",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "OVERLAPPING_SEGMENTS"
+      ],
+      "got_codes": [
+        "OVERLAPPING_SEGMENTS"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-overlapping-segments",
+        "issues": [
+          {
+            "code": "OVERLAPPING_SEGMENTS",
+            "message": "39.8-50.4s and 44.0-56.6s overlap (repeated audio)",
+            "severity": "error",
+            "field": "segments"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-partial-line",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "PARTIAL_LINE"
+      ],
+      "got_codes": [
+        "CUT_MID_SPEECH",
+        "PARTIAL_LINE"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-partial-line",
+        "issues": [
+          {
+            "code": "CUT_MID_SPEECH",
+            "message": "segments[0].start at 41.00s lands while someone is talking",
+            "severity": "error",
+            "field": "segments[0].start"
+          },
+          {
+            "code": "PARTIAL_LINE",
+            "message": "cuts through the line \"Here's the thing nobody tells you about practical effects.\" (40.00-43.60s)",
+            "severity": "error",
+            "field": "segments[0]"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-past-end",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "BAD_TIMESTAMP"
+      ],
+      "got_codes": [
+        "BAD_TIMESTAMP"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-past-end",
+        "issues": [
+          {
+            "code": "BAD_TIMESTAMP",
+            "message": "segment ends at 310.0s, past the end of the video (300.0s)",
+            "severity": "error",
+            "field": "segments[0]"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-quote-wrong-time",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "QUOTE_NOT_IN_TRANSCRIPT"
+      ],
+      "got_codes": [
+        "QUOTE_NOT_IN_TRANSCRIPT"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-quote-wrong-time",
+        "issues": [
+          {
+            "code": "QUOTE_NOT_IN_TRANSCRIPT",
+            "message": "'Cut twenty minutes and this is a masterpiece.' not found in transcript near 45.0-48.2s",
+            "severity": "error",
+            "field": "quotes[0]"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-short-as-wide",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "SHORT_MUST_BE_VERTICAL"
+      ],
+      "got_codes": [
+        "BAD_LENGTH",
+        "SHORT_MUST_BE_VERTICAL"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-short-as-wide",
+        "issues": [
+          {
+            "code": "SHORT_MUST_BE_VERTICAL",
+            "message": "clips are short form; wide is the long-form format",
+            "severity": "error",
+            "field": "format"
+          },
+          {
+            "code": "BAD_LENGTH",
+            "message": "24.6s is outside wide range 60.0-14400.0s",
+            "severity": "error",
+            "field": "end"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-spoiler",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "SPOILER"
+      ],
+      "got_codes": [
+        "SPOILER"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-spoiler",
+        "issues": [
+          {
+            "code": "SPOILER",
+            "message": "contains banned term 'narrator was dead'",
+            "severity": "error",
+            "field": "caption"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-spoken-outro",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "SPOKEN_OUTRO"
+      ],
+      "got_codes": [
+        "SPOKEN_OUTRO"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-spoken-outro",
+        "issues": [
+          {
+            "code": "SPOKEN_OUTRO",
+            "message": "\"Anyway that is all for tonight, thanks for watching.\" at 210.0s: the end card replaces spoken sign-offs",
+            "severity": "error",
+            "field": "segments"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-srt-on-vertical",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "BAD_CAPTION_MODE"
+      ],
+      "got_codes": [
+        "BAD_CAPTION_MODE"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-srt-on-vertical",
+        "issues": [
+          {
+            "code": "BAD_CAPTION_MODE",
+            "message": "vertical uses burned_in captions, not srt",
+            "severity": "error",
+            "field": "captions"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-title-card",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "YOUTUBE_ONLY_CONTENT"
+      ],
+      "got_codes": [
+        "YOUTUBE_ONLY_CONTENT"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-title-card",
+        "issues": [
+          {
+            "code": "YOUTUBE_ONLY_CONTENT",
+            "message": "segment overlaps 56.5-59.9s, which is long-form only (e.g. the title card)",
+            "severity": "error",
+            "field": "segments[0]"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bad-too-long",
+      "label": "bad",
+      "predicted": "reject",
+      "correct": true,
+      "expected_codes": [
+        "BAD_LENGTH"
+      ],
+      "got_codes": [
+        "BAD_LENGTH",
+        "PARTIAL_LINE"
+      ],
+      "reason_correct": true,
+      "report": {
+        "clip_id": "bad-too-long",
+        "issues": [
+          {
+            "code": "BAD_LENGTH",
+            "message": "90.0s is outside vertical range 15.0-60.0s",
+            "severity": "error",
+            "field": "end"
+          },
+          {
+            "code": "CUT_MID_WORD",
+            "message": "segments[0].end 130.0s cuts through 'masterpiece.'",
+            "severity": "warning",
+            "field": "segments[0].end"
+          },
+          {
+            "code": "PARTIAL_LINE",
+            "message": "cuts through the line 'Cut twenty minutes and this is a masterpiece.' (127.00-130.20s)",
+            "severity": "error",
+            "field": "segments[0]"
+          }
+        ]
+      }
+    },
+    {
+      "id": "good-01",
+      "label": "good",
+      "predicted": "pass",
+      "correct": true,
+      "expected_codes": [],
+      "got_codes": [],
+      "reason_correct": null,
+      "report": {
+        "clip_id": "good-01",
+        "issues": []
+      }
+    },
+    {
+      "id": "good-02",
+      "label": "good",
+      "predicted": "pass",
+      "correct": true,
+      "expected_codes": [],
+      "got_codes": [],
+      "reason_correct": null,
+      "report": {
+        "clip_id": "good-02",
+        "issues": []
+      }
+    },
+    {
+      "id": "good-03",
+      "label": "good",
+      "predicted": "pass",
+      "correct": true,
+      "expected_codes": [],
+      "got_codes": [],
+      "reason_correct": null,
+      "report": {
+        "clip_id": "good-03",
+        "issues": []
+      }
+    },
+    {
+      "id": "good-stitched-end-card",
+      "label": "good",
+      "predicted": "pass",
+      "correct": true,
+      "expected_codes": [],
+      "got_codes": [],
+      "reason_correct": null,
+      "report": {
+        "clip_id": "good-stitched-end-card",
+        "issues": []
+      }
+    }
+  ]
+}

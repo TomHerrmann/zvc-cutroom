@@ -16,7 +16,7 @@ from . import subtitles
 from .config import load_rules
 from .evals import run_eval, save_result
 from .runlog import git_sha, read_runs, run
-from .schemas import ClipProposal, Transcript
+from .schemas import ClipProposal, Transcript, VideoContext
 from .store import ClipStore
 from .validators import validate_clip
 
@@ -149,10 +149,17 @@ def validate(
     transcript: Path = typer.Option(..., "--transcript", "-t", exists=True),
     rules_path: Path | None = RulesOpt,
     spoiler: list[str] = typer.Option([], help="Extra per-video spoiler terms."),
+    video: Path | None = typer.Option(
+        None,
+        exists=True,
+        help="video.json (silences, YouTube-only ranges, long review). Without it the "
+        "audio-based cut checks and the end-card rules are skipped.",
+    ),
 ) -> None:
     """Run every validator on one or more clip proposals."""
     rules = load_rules(rules_path)
     t = Transcript.model_validate_json(transcript.read_text())
+    ctx = VideoContext.model_validate_json(video.read_text()) if video else None
     files = (
         sorted(clips.glob("*.json")) + sorted(clips.glob("*.y*ml")) if clips.is_dir() else [clips]
     )
@@ -163,7 +170,7 @@ def validate(
                 json.loads(f.read_text()) if f.suffix == ".json" else yaml.safe_load(f.read_text())
             )
             clip = ClipProposal.model_validate(data.get("clip", data))
-            reports.append(validate_clip(clip, t, rules, spoiler))
+            reports.append(validate_clip(clip, t, rules, spoiler, video=ctx))
         r.add_reports(reports)
     for rep in reports:
         mark = "[green]PASS[/]" if rep.passed else "[red]REJECT[/]"
@@ -249,7 +256,7 @@ def queue(
     for c in ClipStore(root).list(video_id):
         console.print(
             f"{c.status.value:22} {c.video_id}/{c.id}  {len(c.segments)} seg {c.duration:.1f}s  "
-            f"{c.platform.value}  {c.hook}"
+            f"{c.format.value}  {c.hook}"
         )
 
 

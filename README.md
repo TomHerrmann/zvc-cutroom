@@ -13,19 +13,20 @@ change, and a log of cost, latency and pass rates for every run.
 
 | milestone | state |
 |---|---|
-| 1. Pilot: harness, brand rules, eval structure, subtitle ingest + review | **in progress**: harness done, not yet run on a real recording |
-| 2. Automated proposals (LLM scoring + drafting, validated quotes) | not started |
-| 3. Resolve Studio render (scripting API, Smart Reframe, styled subtitles) | not started |
+| 1. Pilot: harness, brand rules, eval structure, subtitle ingest + review | **done for review**: run on one real video (Breeder, 2026); the live Claude subtitle call is untested (no API key yet) |
+| 2. Automated proposals (LLM scoring + drafting, validated quotes) | not started; the four pilot clips were planned by hand |
+| 3. Resolve Studio render (scripting API, Smart Reframe, word-highlight captions) | **partly proven**: the pilot timelines were built through the Resolve scripting API by hand; no `cutroom render` command yet |
 | 4. Approval queue + metrics feedback into the ranker | not started |
 | 5. Portfolio polish: demo video, published eval results | not started |
 | Stretch: long-form 4K YouTube edits from raw footage, built with an agent ([plan](docs/longform.md)) | planned |
 
 The only eval set today is `synthetic_smoke`: an invented transcript with one hand-written case
-per guardrail. It proves the validators work; it says nothing yet about clip quality.
+per guardrail (24 cases). It proves the validators work; it says nothing yet about clip quality.
+The first real set needs a person's post / never-post labels on the pilot clips.
 
-The pilot uses an older ZVC episode downloaded from YouTube Studio (the original raw files are
-gone). That copy is lower resolution, so it is used for transcript and selection work only; any
-render shown as a finished 4K or 1080p deliverable comes from full-quality source footage.
+The pilot source is a finished ZVC review (Breeder, 2026). The raw footage is gone, and this copy
+is 1080p at about 1.9 Mbps. A 9:16 crop of it is upscaled, so pilot renders are review copies, not
+deliverables.
 
 ## Pipeline
 
@@ -66,11 +67,15 @@ API can't style subtitles or animate them word by word. So `cutroom align` force
 reviewed text to the audio. This uses pocketsphinx's bundled English model, and it only times
 words that are already known; it does no transcription. Captions are then built from those word
 times: at most 3 words / 22 characters per line, Montserrat ExtraBold, with the spoken word in
-brand blue. They are rendered with libass to a transparent overlay above the video.
+brand blue. An ASS file is written per clip and rendered with ffmpeg/libass to a transparent QuickTime
+Animation overlay above the video. Resolve ignored ProRes 4444 alpha in testing; QuickTime
+Animation composites correctly. That render step is a shell command today, not a `cutroom` command.
 
 Cuts use the same data. Each clip is an ordered list of source segments, so it can stitch lines
-from different parts of the review. Every segment edge is snapped into measured silence (5 ms
-audio level, below -55 dB), so no clip starts or ends inside a word. If a longer review exists,
+from different parts of the review. When clips are built (`scripts/build_pilot_clips.py` for the
+pilot), every segment edge is snapped into measured silence (5 ms audio level, below -55 dB), so
+no clip starts or ends inside a word. The validators check this again given the video's silence
+map. Whether stitched parts follow one train of thought is still judged by a person. If a longer review exists,
 the clip ends on the ZVC title card ("FULL VIDEO ON YOUTUBE"), which slams in over the last
 12 frames. Spoken sign-offs like "let me know what you think" are rejected.
 
@@ -79,8 +84,8 @@ the clip ends on the ZVC title card ("FULL VIDEO ON YOUTUBE"), which slams in ov
 | module | role |
 |---|---|
 | `schemas.py` | Pydantic models for transcripts, clip proposals, validation reports, run records. `extra="forbid"` everywhere, so malformed model output fails to parse. |
-| `config/brand_rules.yaml` + `config.py` | Brand rules as data: CTA window, cover rules, spoiler terms, hashtags, output formats, subtitle colors. Hashed into every run record. |
-| `validators/` | Pure functions returning typed issues. `quotes` (verbatim match inside the claimed time window: no invented or misattributed quotes), `timestamps` (bounds, length, resolution, caption mode, short-form-is-vertical, mid-word cuts), `brand` (CTA, cover face + 3-5 words, spoilers, hashtags, caption length). |
+| `config/brand_rules.yaml` + `config.py` | Brand rules as data: CTA window, cover rules, spoiler terms, hashtags, output formats, subtitle colors, caption style, end card. Hashed into every run record. |
+| `validators/` | Pure functions returning typed issues. `quotes` (verbatim match inside the claimed time window: no invented or misattributed quotes), `timestamps` (bounds, length, resolution, caption mode, short-form-is-vertical, overlapping segments, lines cut part-way, cuts mid-speech, YouTube-only content like the title card), `brand` (CTA, cover face + 3-5 words, spoilers, hashtags, caption length), `outro` (below). |
 | `align.py` / `audio.py` | Forced alignment of the reviewed words to the audio, and the audio level map that cut edges snap to. |
 | `captions.py` | Short caption lines from real word times, written as ASS with the spoken word highlighted. |
 | `validators/outro.py` | The end card is required when a longer review exists, spoken sign-offs are rejected, and the card can't point to a review that doesn't exist. |
@@ -92,18 +97,23 @@ the clip ends on the ZVC title card ("FULL VIDEO ON YOUTUBE"), which slams in ov
 ## Usage
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev,align]"
 # In Resolve: generate subtitles from audio, export the subtitle track as SRT
 cutroom import-srt episode.srt --id cronov-e01 --duration 3600
 cutroom review-subs data/cronov-e01/transcript.resolve.json --glossary names.txt
-#   -> data/cronov-e01/subtitles.reviewed.srt, ready to re-import into Resolve
-cutroom validate my_clips/ -t data/cronov-e01/transcript.reviewed.json
+#   -> subtitles.reviewed.srt (the YouTube caption file) + subtitle_questions.md
+ffmpeg -i episode.mp4 -ac 1 -ar 16000 data/cronov-e01/audio16k.wav
+cutroom align data/cronov-e01/transcript.reviewed.json --audio data/cronov-e01/audio16k.wav
+cutroom validate clips/cronov-e01/ -t data/cronov-e01/transcript.aligned.json \
+    --video data/cronov-e01/video.json
+cutroom queue --id cronov-e01
 cutroom eval evals/sets/synthetic_smoke
 cutroom runs
 ```
 
 `review-subs` calls the Claude API (`ANTHROPIC_API_KEY`); `--review-file` applies a saved review
-without a call.
+without a call. `validate` runs the audio-based cut checks and the end-card rules only when
+`--video` is given.
 
 ## Development
 

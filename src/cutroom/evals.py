@@ -23,7 +23,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from .config import BrandRules
-from .schemas import ClipProposal, Transcript, ValidationReport
+from .schemas import ClipProposal, Transcript, ValidationReport, VideoContext
 from .validators import validate_clip
 
 
@@ -36,6 +36,8 @@ class EvalCase(BaseModel):
     )
     notes: str = ""
     clip: ClipProposal
+    # Per-video facts for the audio and end-card checks; falls back to the manifest's.
+    video: VideoContext | None = None
 
 
 class EvalManifest(BaseModel):
@@ -47,6 +49,7 @@ class EvalManifest(BaseModel):
     )
     transcript: str
     spoilers: list[str] = Field(default_factory=list)
+    video: VideoContext | None = None
 
 
 class CaseResult(BaseModel):
@@ -99,7 +102,9 @@ def run_eval(path: Path, rules: BrandRules, git_sha: str | None = None) -> EvalR
     manifest, transcript, cases = load_set(path)
     results: list[CaseResult] = []
     for case in cases:
-        rep = validate_clip(case.clip, transcript, rules, manifest.spoilers)
+        rep = validate_clip(
+            case.clip, transcript, rules, manifest.spoilers, video=case.video or manifest.video
+        )
         predicted = "pass" if rep.passed else "reject"
         correct = (predicted == "pass") == (case.label == "good")
         reason_ok = (
