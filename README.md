@@ -17,7 +17,8 @@ change, and a log of cost, latency and pass rates for every run.
 | 2. Automated proposals (LLM scoring + drafting, validated quotes) | not started; the four pilot clips were planned by hand |
 | 3. Resolve Studio render (scripting API, Smart Reframe, word-highlight captions) | **in review**: `export`, `captions` and `resolve-build` commands, tested against a fake Resolve in CI. The real Resolve run is manual (it needs Resolve Studio on a Mac) |
 | 4. Approval queue + metrics feedback into the ranker | not started |
-| 5. Portfolio polish: demo video, published eval results | not started |
+| 5. Retrieval across the whole channel (RAG over every transcript, below) | not started |
+| 6. Portfolio polish: demo video, published eval results | not started |
 | Stretch: long-form 4K YouTube edits from raw footage, built with an agent ([plan](docs/longform.md)) | planned |
 
 The only eval set today is `synthetic_smoke`: an invented transcript with one hand-written case
@@ -133,6 +134,13 @@ without a call. `validate` runs the audio-based cut checks and the end-card rule
 - **Buffer drafts.** Push that copy to Buffer as drafts only, one per connected channel, for a
   person to finish and schedule. Never `shareNow` or queue. Video posts need a public video URL,
   so the rendered clip has to be hosted first.
+- **Retrieval across every video (RAG).** Chunk and embed the reviewed transcripts of every
+  ZVC video, kept in Postgres with pgvector, so that clip picking and social copy can draw on
+  the whole channel, not one video at a time: finding the strongest moments on a theme,
+  pulling earlier takes on the same director or studio, and not repeating a clip already
+  posted. Retrieval quality is measured, not assumed: a labelled query set (query to the
+  moments a person says are right) scored by recall@k and MRR in the eval run, so a change
+  to chunking or the embedding model shows up as a number.
 - Record post / never verdicts on the pilot clips and build the first real eval set.
 
 ## Development
