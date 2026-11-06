@@ -501,18 +501,20 @@ def render_script(
         f'SRC="{source}"',
         "mkdir -p segs",
         'if [ "$1" = concat ]; then',
-        "  ls segs/*.mp4 | sort | sed \"s/^/file '/;s/$/'/\" > segs/list.txt",
+        "  (cd segs && ls [0-9]*.mp4 | sort | sed \"s/^/file '/;s/$/'/\") > segs/list.txt",
         "  ffmpeg -nostdin -v error -y -f concat -safe 0 -i segs/list.txt -c copy "
         "-movflags +faststart cut.mp4",
         "  exit 0",
         "fi",
         "FROM=${1:-0}; TO=${2:-99999}",
-        "seg() {  # index start duration video-filter audio-filter",
+        "# Each piece is cut to a whole number of frames with its audio padded to match, so",
+        "# the joins don't drift and cut.srt stays in sync to the end.",
+        "seg() {  # index start duration video-filter audio-filter output-length",
         '  [ "$1" -lt "$FROM" ] || [ "$1" -gt "$TO" ] && return 0',
         '  OUT=$(printf "segs/%04d.mp4" "$1")',
         '  [ -s "$OUT" ] && return 0',
         '  ffmpeg -nostdin -v error -y -ss "$2" -t "$3" -i "$SRC" -map 0:v:0 -map 0:a:0 '
-        '-vf "$4" -af "$5" -c:v libx264 -preset veryfast -crf 22 -pix_fmt yuv420p '
+        '-vf "$4" -af "$5,apad" -t "$6" -c:v libx264 -preset veryfast -crf 22 -pix_fmt yuv420p '
         '-c:a aac -b:a 160k -ar 48000 -ac 2 -f mp4 "$OUT.part" && mv "$OUT.part" "$OUT"',
         "}",
     ]
@@ -524,7 +526,10 @@ def render_script(
             vf = f"setpts=(PTS-STARTPTS)/{s.speed:g},{scale},fps={fps}"
             af = f"{_atempo(s.speed)},volume={vol:g}"
         tag = f"speech {s.lines[0]}-{s.lines[-1]}" if s.lines else f"{s.kind} {s.speed:g}x"
-        lines.append(f'seg {i} {s.start:.3f} {s.duration:.3f} "{vf}" "{af}"  # {tag}')
+        frames = max(round(s.out_duration * fps), 1)
+        lines.append(
+            f'seg {i} {s.start:.3f} {s.duration:.3f} "{vf}" "{af}" {frames / fps:.4f}  # {tag}'
+        )
     return "\n".join(lines) + "\n"
 
 
