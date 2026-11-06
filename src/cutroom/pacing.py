@@ -78,10 +78,18 @@ class StretchLabel(_Out):
     note: str = Field(description="A few words on what is happening.")
 
 
+class TitleDraft(_Out):
+    after_line: int = Field(description="The title card plays right after this line: the hook.")
+    text: str = Field(description="The title card text, e.g. '16mm Journey: First Light'.")
+
+
 class PacingDraft(_Out):
     keep: list[LineRange] = Field(description="Spoken line ranges to keep, in order.")
     labels: list[StretchLabel] = Field(
         description="One or more labels per unspoken stretch, covering it start to end."
+    )
+    title: TitleDraft | None = Field(
+        default=None, description="Where the title card goes and what it says."
     )
 
 
@@ -111,22 +119,36 @@ class Dropped(_Out):
     reason: str
 
 
+class TitleCard(_Out):
+    """The series title card (a Resolve template with its own sound), played between pieces."""
+
+    before_segment: int = Field(ge=0, description="It plays just before this segment.")
+    after_line: int
+    text: str
+    seconds: float = Field(gt=0)
+    template: str
+
+
 class EditPlan(_Out):
     video_id: str
     source_duration: float
     segments: list[EditSegment]
+    title_card: TitleCard | None = None
     dropped: list[Dropped] = Field(default_factory=list)
     issues: list[Issue] = Field(default_factory=list)
     rules_hash: str | None = None
 
     @property
     def out_duration(self) -> float:
-        return sum(s.out_duration for s in self.segments)
+        card = self.title_card.seconds if self.title_card else 0.0
+        return sum(s.out_duration for s in self.segments) + card
 
     def out_time(self, t: float) -> float | None:
         """Where source time t lands in the cut, or None if it was cut."""
         acc = 0.0
-        for s in self.segments:
+        for i, s in enumerate(self.segments):
+            if self.title_card and i == self.title_card.before_segment:
+                acc += self.title_card.seconds
             if s.start <= t <= s.end:
                 return acc + (t - s.start) / s.speed
             acc += s.out_duration
@@ -226,8 +248,15 @@ def kept_ids(transcript: Transcript, keep: Sequence[LineRange]) -> tuple[list[in
     return sorted(ids), issues
 
 
-def spoken_runs(transcript: Transcript, ids: Sequence[int], rules: PacingRules) -> list[list[int]]:
-    """Kept lines grouped into runs: consecutive ids with a short pause between them."""
+def spoken_runs(
+    transcript: Transcript,
+    ids: Sequence[int],
+    rules: PacingRules,
+    breaks: Sequence[int] = (),
+) -> list[list[int]]:
+    """Kept lines grouped into runs: consecutive ids with a short pause between them.
+
+    A line in `breaks` always ends its run (the title card goes after it)."""
     by = {s.id: s for s in transcript.segments}
     voiced = [i for i in ids if by[i].words]
     runs: list[list[int]] = []
@@ -235,7 +264,8 @@ def spoken_runs(transcript: Transcript, ids: Sequence[int], rules: PacingRules) 
         if runs:
             prev = by[runs[-1][-1]]
             gap = by[i].words[0].start - prev.words[-1].end
-            if i == runs[-1][-1] + 1 and gap < rules.min_stretch_seconds:
+            joined = i == runs[-1][-1] + 1 and gap < rules.min_stretch_seconds
+            if joined and runs[-1][-1] not in breaks:
                 runs[-1].append(i)
                 continue
         runs.append([i])
@@ -294,7 +324,20 @@ def build_plan(
 ) -> EditPlan:
     pr = rules.longform.pacing
     ids, issues = kept_ids(transcript, draft.keep)
-    runs = spoken_runs(transcript, ids, pr)
+    title = draft.title
+    tr = rules.longform.title_card
+    if title is not None and title.after_line not in ids:
+        issues.append(
+            Issue(code="TITLE_AFTER_UNKNOWN_LINE",
+                  message=f"title card after line {title.after_line}, which isn't kept")
+        )  # fmt: skip
+        title = None
+    if title is not None and len(title.text) > tr.max_chars:
+        issues.append(
+            Issue(code="TITLE_TOO_LONG",
+                  message=f"title {title.text!r} is over {tr.max_chars} characters")
+        )  # fmt: skip
+    runs = spoken_runs(transcript, ids, pr, breaks=[title.after_line] if title else [])
     cuts = _run_cuts(transcript, runs, level)
     stretches = find_stretches(transcript, draft.keep, pr, level)
     by_after = {s.after: s for s in stretches}
@@ -372,6 +415,7 @@ def build_plan(
                 out.append(p.model_copy(update={"start": a, "end": b, "speed": speed}))
         return out
 
+    card = None
     for run, (a, b, clean) in zip(runs, cuts, strict=True):
         st = by_after.get(run[0])
         if st is not None:
@@ -385,6 +429,14 @@ def build_plan(
                 )
             )
         segments.append(EditSegment(start=a, end=b, speed=1, kind="speech", lines=run))
+        if title is not None and run[-1] == title.after_line:
+            card = TitleCard(
+                before_segment=len(segments),
+                after_line=title.after_line,
+                text=title.text,
+                seconds=tr.seconds,
+                template=tr.template,
+            )
 
     for n, lab in labels:
         if n not in used:
@@ -400,6 +452,7 @@ def build_plan(
         video_id=transcript.video_id,
         source_duration=transcript.duration,
         segments=segments,
+        title_card=card,
         dropped=dropped,
         issues=issues,
         rules_hash=rules.config_hash,
@@ -497,6 +550,14 @@ def render_script(
         f"# Review cut of {plan.video_id}: {len(plan.segments)} segments, "
         f"{plan.out_duration / 60:.1f} min from {plan.source_duration / 60:.1f} min of source.",
         "set -e",
+        *(
+            [
+                f"# The title card ({plan.title_card.text!r}) plays before segment "
+                f"{plan.title_card.before_segment} in Resolve; this review render leaves it out."
+            ]
+            if plan.title_card
+            else []
+        ),  # fmt: skip
         'cd "$(dirname "$0")"',
         f'SRC="{source}"',
         "mkdir -p segs",
@@ -576,12 +637,21 @@ with one or more labels, splitting it where the action changes. Kinds:
 {kinds}
 Idle and empty stretches are cut; the others are kept, sped up by kind. Label what you see, \
 not what you'd like to keep: the speed is decided by code.
+
+Title card: after the hook (the opening lines that set up the video, channel intro \
+included), the series title card plays. Give the id of the line it follows and its text: \
+{title_form}, at most {max_chars} characters, a short, snappy title drawn from what actually \
+happens in this video.
 """
 
 
-def _system(rules: BrandRules, about: str | None) -> str:
+def _system(rules: BrandRules, about: str | None, series: str | None = None) -> str:
     kinds = "\n".join(f"- {k}: {v}" for k, v in KIND_HELP.items())
-    return SYSTEM.format(brand=rules.brand, about=about or "", kinds=kinds)
+    form = f"'{series}: <title>'" if series else "'<series name>: <title>'"
+    return SYSTEM.format(
+        brand=rules.brand, about=about or "", kinds=kinds, title_form=form,
+        max_chars=rules.longform.title_card.max_chars,
+    )  # fmt: skip
 
 
 def _lines_text(transcript: Transcript) -> str:
@@ -597,6 +667,7 @@ def draft_with_claude(
     about: str | None = None,
     run: Run | None = None,
     client: Any = None,
+    series: str | None = None,
 ) -> PacingDraft:
     """One call: the transcript plus a contact sheet per stretch.
 
@@ -632,7 +703,7 @@ def draft_with_claude(
     response = client.beta.messages.parse(
         model=pr.model,
         max_tokens=16000,
-        system=_system(rules, about),
+        system=_system(rules, about, series),
         messages=[{"role": "user", "content": content}],
         output_format=PacingDraft,
         output_config={"effort": pr.effort},

@@ -228,12 +228,17 @@ def resolve_build_cmd(
         raise typer.Exit(1)
 
 
+ZVC_ROOT = Path.home() / "Zero Vision Cinema"
+
+
 @app.command("resolve-edit")
 def resolve_edit_cmd(
     plan: Path = typer.Argument(..., exists=True, help="edit_plan.json from `cutroom pace`."),
     source: Path = typer.Option(..., exists=True, help="The raw source video."),
     name: str = typer.Option(..., help="Timeline name (replaced if it exists)."),
     srt: Path | None = typer.Option(None, exists=True, help="cut.srt for the subtitle track."),
+    zvc_root: Path = typer.Option(ZVC_ROOT, help="Folder the title card template path is under."),
+    rules_path: Path | None = RulesOpt,
 ) -> None:
     """Build a long-form edit as a Resolve timeline in the open project, then check it."""
     from . import resolve_build
@@ -379,6 +384,7 @@ def pace_cmd(
         None, exists=True, help="Use a saved pacing draft instead of calling Claude."
     ),
     about: str | None = typer.Option(None, help="One or two sentences on the video."),
+    series: str | None = typer.Option(None, help="Series name for the title card."),
     out: Path = typer.Option(..., help="Folder for edit_plan.json, cut.srt and render.sh."),
     render_source: str | None = typer.Option(
         None, help="Source path as render.sh should see it (default: --frames)."
@@ -411,7 +417,9 @@ def pace_cmd(
 
             ids = [s.id for s in t.segments]
             first = [LineRange(first=ids[0], last=ids[-1])]
-            draft = PC.draft_with_claude(rules, t, first, frames, level, about, run=r)
+            draft = PC.draft_with_claude(
+                rules, t, first, frames, level, about, run=r, series=series
+            )
             PC.save(draft, transcript.with_name("pacing_draft.json"))
         plan = PC.build_plan(t, draft, rules, level, motion)
         errors = [i for i in plan.issues if i.severity == "error"]
@@ -435,6 +443,9 @@ def pace_cmd(
         f"{summ['source_seconds'] / 60:.1f} min of source -> {summ['cut_seconds'] / 60:.1f} min "
         f"cut; {summ['dropped_seconds']:.0f}s of unspoken footage dropped"
     )
+    if plan.title_card:
+        tc = plan.title_card
+        console.print(f"title card {tc.text!r} after line {tc.after_line} ({tc.seconds:g}s)")
     for i in plan.issues:
         colour = "red" if i.severity == "error" else "yellow"
         console.print(f"  [{colour}]{i.code:22}[/] {i.message}")
