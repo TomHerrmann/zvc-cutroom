@@ -170,3 +170,101 @@ def check_clip(project: Any, plan_entry: dict) -> list[str]:
         if len(v3) != 1 or v3[0].GetStart() - start != at:
             problems.append(f"V3 end card should start at frame {at}")
     return [f"{plan_entry['id']}: {p}" for p in problems]
+
+
+# --------------------------------------------------------------------------- long-form edits
+
+EDIT_COLORS = {2: "Yellow", 4: "Orange", 8: "Pink"}  # sped pieces, by speed; "show" is Teal
+
+
+def build_edit_timeline(
+    project: Any,
+    plan: dict,
+    source: Any,
+    name: str,
+    srt: str | None = None,
+    width: int = 3840,
+    height: int = 2160,
+    sped_volume_db: float = -6.0,
+) -> dict:
+    """Build a long-form edit (`pacing.EditPlan` as a dict) as one 16:9 timeline.
+
+    Pieces go on V1/A1 back to back, then each sped piece gets its speed (pitch-corrected,
+    rippling the timeline), its sound lowered, and a clip colour by speed so the edit reads at
+    a glance. The retimed SRT, if given, goes on a subtitle track. An existing timeline with
+    the same name is replaced.
+    """
+    mp = project.GetMediaPool()
+    old = _timelines(project).get(name)
+    if old is not None:
+        mp.DeleteTimelines([old])
+    tl = mp.CreateEmptyTimeline(name)
+    for k, v in {**SETTINGS, "timelineResolutionWidth": str(width),
+                 "timelineResolutionHeight": str(height)}.items():  # fmt: skip
+        if k != "timelineInputResMismatchBehavior":
+            tl.SetSetting(k, v)
+    project.SetCurrentTimeline(tl)
+    segs = plan["segments"]
+    infos = [
+        {"mediaPoolItem": source, "startFrame": round(s["start"] * FPS),
+         "endFrame": round(s["end"] * FPS)}
+        for s in segs
+    ]  # fmt: skip
+    mp.AppendToTimeline(infos)
+    sped = 0
+    for i, s in enumerate(segs):
+        v, a = tl.GetItemListInTrack("video", 1)[i], tl.GetItemListInTrack("audio", 1)[i]
+        if s["kind"] == "show":
+            v.SetClipColor("Teal")
+            a.SetClipColor("Teal")
+        if s["speed"] == 1:
+            continue
+        if not v.SetSpeed(
+            {"Percentage": s["speed"] * 100, "PitchCorrection": True, "RippleTimeline": True}
+        ):
+            raise RuntimeError(f"Resolve refused speed {s['speed']}x on piece {i}")
+        a.SetProperty("AudioVolume", sped_volume_db)
+        color = EDIT_COLORS.get(int(s["speed"]))
+        if color:
+            v.SetClipColor(color)
+            a.SetClipColor(color)
+        sped += 1
+    subs = 0
+    if srt:
+        stem = srt.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+        # Re-import every time: reusing an SRT already in the pool placed its cues at the
+        # wrong rate (twice as late) in Resolve 21 when the pool item predates the timeline.
+        known = _pool_item(mp.GetRootFolder(), stem)
+        if known is not None:
+            mp.DeleteClips([known])
+        imported = mp.ImportMedia([srt])
+        if imported:
+            tl.AddTrack("subtitle")
+            mp.AppendToTimeline([{"mediaPoolItem": imported[0], "recordFrame": tl.GetStartFrame()}])
+            subs = len(tl.GetItemListInTrack("subtitle", 1) or [])
+    return {"name": name, "pieces": len(segs), "sped": sped, "subtitles": subs,
+            "frames": tl.GetEndFrame() - tl.GetStartFrame()}  # fmt: skip
+
+
+def check_edit_timeline(project: Any, plan: dict, name: str, slack_frames: int = 2) -> list[str]:
+    """Read the timeline back: every piece present, at its speed, at its planned length."""
+    tl = _timelines(project).get(name)
+    if tl is None:
+        return [f"{name}: timeline missing"]
+    items = tl.GetItemListInTrack("video", 1)
+    segs = plan["segments"]
+    if len(items) != len(segs):
+        return [f"{name}: {len(items)} pieces on V1, plan has {len(segs)}"]
+    out = []
+    end = items[-1].GetEnd() if items else tl.GetStartFrame()
+    subs = tl.GetItemListInTrack("subtitle", 1) or []
+    if subs and max(x.GetEnd() for x in subs) > end + FPS // 2:  # cue ends are word ends
+        out.append(f"{name}: subtitles run past the end of the video")
+    for i, (it, s) in enumerate(zip(items, segs, strict=True)):
+        want = (round(s["end"] * FPS) - round(s["start"] * FPS)) / s["speed"]
+        if abs(it.GetDuration() - want) > slack_frames:
+            out.append(f"{name}: piece {i} is {it.GetDuration()} frames, plan {want:.0f}")
+        got = (it.GetSpeed() or {}).get("Percentage", 100.0)
+        if abs(got - s["speed"] * 100) > 0.5:
+            out.append(f"{name}: piece {i} plays at {got}%, plan {s['speed'] * 100:g}%")
+    return out

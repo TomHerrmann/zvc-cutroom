@@ -200,3 +200,139 @@ def test_motion_and_sheet_from_a_real_video(tmp_path):
     assert 4.0 <= a <= 5.0 and b >= 7.0
     jpg = PC.stretch_sheet(v, PC.Stretch(start=0, end=8, before=0, after=1))
     assert jpg[:2] == b"\xff\xd8"
+
+
+class _Item:
+    def __init__(self, tl, start, n):
+        self.tl, self.start, self.n, self.speed, self.props, self.color = (
+            tl,
+            start,
+            n,
+            100.0,
+            {},
+            None,
+        )
+
+    def GetDuration(self):
+        return self.n
+
+    def GetEnd(self):
+        return self.start + self.n
+
+    def GetSpeed(self):
+        return {"Percentage": self.speed}
+
+    def SetSpeed(self, opts):
+        new = round(self.n * self.speed / opts["Percentage"])
+        shift, self.n, self.speed = new - self.n, new, opts["Percentage"]
+        if opts.get("RippleTimeline"):
+            for it in self.tl.items:
+                if it is not self and it.start > self.start:
+                    it.start += shift
+        return True
+
+    def SetProperty(self, k, v):
+        self.props[k] = v
+        return True
+
+    def SetClipColor(self, c):
+        self.color = c
+        return True
+
+
+class _Timeline:
+    def __init__(self, name):
+        self.name, self.items, self.settings, self.subs = name, [], {}, []
+
+    def GetName(self):
+        return self.name
+
+    def SetSetting(self, k, v):
+        self.settings[k] = v
+        return True
+
+    def GetStartFrame(self):
+        return 108000
+
+    def GetEndFrame(self):
+        return 108000 + sum(i.n for i in self.items)
+
+    def AddTrack(self, kind):
+        return True
+
+    def GetItemListInTrack(self, kind, i):
+        if kind == "subtitle":
+            return self.subs
+        return sorted(self.items, key=lambda x: x.start)  # audio mirrors video here
+
+
+class _Project:
+    def __init__(self):
+        self.tls, self.current = [], None
+        proj = self
+
+        class MP:
+            def CreateEmptyTimeline(self, name):
+                proj.tls.append(_Timeline(name))
+                return proj.tls[-1]
+
+            def DeleteTimelines(self, tls):
+                proj.tls = [t for t in proj.tls if t not in tls]
+                return True
+
+            def GetRootFolder(self):
+                return SimpleNamespace(GetClipList=lambda: [])
+
+            def DeleteClips(self, items):
+                return True
+
+            def ImportMedia(self, paths):
+                return [SimpleNamespace(name=p) for p in paths]
+
+            def AppendToTimeline(self, infos):
+                tl = proj.current
+                for i in infos:
+                    if "startFrame" in i:
+                        tl.items.append(
+                            _Item(tl, tl.GetEndFrame(), i["endFrame"] - i["startFrame"])
+                        )
+                    else:
+                        tl.subs = [_Item(tl, tl.GetStartFrame() + k * 30, 30) for k in range(3)]
+                return True
+
+        self.mp = MP()
+
+    def GetMediaPool(self):
+        return self.mp
+
+    def GetTimelineCount(self):
+        return len(self.tls)
+
+    def GetTimelineByIndex(self, i):
+        return self.tls[i - 1]
+
+    def SetCurrentTimeline(self, tl):
+        self.current = tl
+        return True
+
+
+def test_resolve_edit_timeline_matches_the_plan(raw, rules):
+    from cutroom import resolve_build as RB
+
+    plan = PC.build_plan(raw, PC.PacingDraft(keep=keep(), labels=labels()), rules)
+    data = plan.model_dump(mode="json")
+    proj = _Project()
+    done = RB.build_edit_timeline(proj, data, object(), "ep v1", srt="cut.srt")
+    assert done["pieces"] == 7 and done["sped"] == 2 and done["subtitles"] == 3
+    assert abs(done["frames"] / 30 - plan.out_duration) < 0.2
+    assert RB.check_edit_timeline(proj, data, "ep v1") == []
+    sped = [i for i in proj.tls[0].items if i.speed != 100]
+    assert {i.color for i in sped} == {"Pink", "Yellow"} and sped[0].props["AudioVolume"] == -6
+    # building again replaces the timeline; a wrong speed is caught on read-back
+    RB.build_edit_timeline(proj, data, object(), "ep v1")
+    assert len(proj.tls) == 1
+    proj.tls[0].subs.append(_Item(proj.tls[0], proj.tls[0].GetEndFrame() + 900, 30))
+    proj.tls[0].items[1].speed = 400.0
+    problems = RB.check_edit_timeline(proj, data, "ep v1")
+    assert any("plays at 400" in p for p in problems)
+    assert any("subtitles run past" in p for p in problems)

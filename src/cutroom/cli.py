@@ -228,6 +228,40 @@ def resolve_build_cmd(
         raise typer.Exit(1)
 
 
+@app.command("resolve-edit")
+def resolve_edit_cmd(
+    plan: Path = typer.Argument(..., exists=True, help="edit_plan.json from `cutroom pace`."),
+    source: Path = typer.Option(..., exists=True, help="The raw source video."),
+    name: str = typer.Option(..., help="Timeline name (replaced if it exists)."),
+    srt: Path | None = typer.Option(None, exists=True, help="cut.srt for the subtitle track."),
+) -> None:
+    """Build a long-form edit as a Resolve timeline in the open project, then check it."""
+    from . import resolve_build
+
+    try:
+        import DaVinciResolveScript as dvr  # type: ignore[import-not-found]
+    except ImportError as e:
+        console.print("[red]Resolve scripting API not found.[/] Run this on the editing machine "
+                      "with Resolve open and its Modules folder on PYTHONPATH.")  # fmt: skip
+        raise typer.Exit(2) from e
+    resolve = dvr.scriptapp("Resolve")
+    proj = resolve.GetProjectManager().GetCurrentProject()
+    data = json.loads(plan.read_text())
+    with run("resolve-edit") as r:
+        root = proj.GetMediaPool().GetRootFolder()
+        item = resolve_build._pool_item(root, source.name)
+        if item is None:
+            (item,) = proj.GetMediaPool().ImportMedia([str(source)])
+        done = resolve_build.build_edit_timeline(proj, data, item, name, str(srt) if srt else None)
+        problems = resolve_build.check_edit_timeline(proj, data, name)
+        r.record.extra = {"built": done, "problems": problems}
+    console.print(f"[green]built[/] {done['name']}: {done['pieces']} pieces, {done['sped']} sped")
+    for p in problems:
+        console.print(f"[red]check failed[/] {p}")
+    if problems:
+        raise typer.Exit(1)
+
+
 @app.command("propose")
 def propose_cmd(
     transcript: Path = typer.Argument(..., exists=True, help="transcript.aligned.json"),
