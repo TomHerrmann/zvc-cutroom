@@ -16,9 +16,35 @@ HOP = 0.005  # seconds per level frame
 SILENT_DB = -55.0  # this channel's audio is gated; speech sits far above this
 
 
+# Where a steady noise sits above SILENT_DB (a projector running, room tone), a pause is
+# anything this far below the speech over the local noise floor.
+FLOOR_MARGIN_DB = 6.0
+FLOOR_WINDOW = 5.0  # seconds of audio the local floor is measured over
+
+
+def _quiet_threshold(db: np.ndarray) -> np.ndarray:
+    """Per-frame silence threshold: SILENT_DB, raised over a steady noise floor.
+
+    The floor is the 10th percentile level in each second, smoothed over FLOOR_WINDOW. On
+    gated audio (a finished review) the floor sits far below SILENT_DB and nothing changes.
+    """
+    per = int(1 / HOP)
+    n = max(len(db) // per, 1)
+    ends = [(i + 1) * per if i < n - 1 else len(db) for i in range(n)]
+    blocks = np.array([np.percentile(db[i * per : e], 10) for i, e in enumerate(ends)])
+    half = int(FLOOR_WINDOW // 2)
+    floor = np.array([blocks[max(0, i - half) : i + half + 1].min() for i in range(n)])
+    thresh = np.maximum(SILENT_DB, floor + FLOOR_MARGIN_DB)
+    out = np.repeat(thresh, per)
+    if len(out) < len(db):
+        out = np.concatenate([out, np.full(len(db) - len(out), thresh[-1])])
+    return out[: len(db)]
+
+
 class Level:
     def __init__(self, db: np.ndarray):
         self.db = db
+        self.quiet = _quiet_threshold(db) if len(db) else db
 
     @classmethod
     def from_wav(cls, path: Path) -> Level:
@@ -38,7 +64,7 @@ class Level:
 
     def silences(self, lo: float, hi: float, min_len: float = 0.02) -> list[tuple[float, float]]:
         a, b = max(int(lo / HOP), 0), min(int(hi / HOP), len(self.db))
-        quiet = self.db[a:b] < SILENT_DB
+        quiet = self.db[a:b] < self.quiet[a:b]
         out, i = [], 0
         while i < len(quiet):
             if quiet[i]:

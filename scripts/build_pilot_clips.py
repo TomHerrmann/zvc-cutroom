@@ -6,11 +6,11 @@ from pathlib import Path
 
 from cutroom.audio import Level
 from cutroom.config import load_rules
+from cutroom.cuts import cut_lines
 from cutroom.render import export_plan
 from cutroom.schemas import (
     CTA,
     ClipProposal,
-    ClipSegment,
     CoverCandidate,
     QuoteRef,
     Transcript,
@@ -25,30 +25,23 @@ srt = Transcript.model_validate_json((D / "transcript.reviewed.json").read_text(
 t = Transcript.model_validate_json((D / "transcript.aligned.json").read_text())
 v = VideoContext.model_validate_json((D / "video.json").read_text())
 cues = t.segments
-words = t.words()
 level = Level.from_wav(Path(sys.argv[2]) if len(sys.argv) > 2 else D / "audio16k.wav")
+# Optional third argument: the source video, so cover frames get a real face check.
+faces = None
+if len(sys.argv) > 3:
+    from cutroom.faces import FaceProbe
+
+    faces = FaceProbe(Path(sys.argv[3]))
 
 
 def seg(first: float, last_end: float):
     """first/last_end: SRT times of the first and last line to keep. Cuts land in the gap
     between real words: never inside the first or last word, never on a neighbour."""
     ids = [s.id for s in srt.segments if s.start >= first - 0.05 and s.end <= last_end + 0.05]
-    lines = [c for c in cues if c.id in ids and c.words]
-    w0, w1 = lines[0].words[0], lines[-1].words[-1]
-    i0, i1 = words.index(w0), words.index(w1)
-    prev_end = words[i0 - 1].end if i0 > 0 else 0.0
-    next_start = words[i1 + 1].start if i1 + 1 < len(words) else t.duration
-    start, ok_in = level.cut_in(w0.start, prev_end)
-    end, ok_out = level.cut_out(w1.end, next_start)
-    if not (ok_in and ok_out):
-        edge = "start" if not ok_in else "end"
-        print(f"  no clean pause at the {edge} of {first:.2f}-{last_end:.2f}")
-    for a, b in v.youtube_only:  # never bleed into long-form-only material (title card)
-        if start < a < end:
-            end = a - 1 / 30
-        if start < b < end:
-            start = b + 1 / 30
-    return ClipSegment(start=round(max(start, 0.0), 3), end=round(end, 3))
+    out, clean = cut_lines(t, ids, level, v)
+    if not clean:
+        print(f"  no clean pause at an edge of {first:.2f}-{last_end:.2f}")
+    return out
 
 
 def quotes_for(segments):
@@ -115,6 +108,7 @@ for cid, hook, ranges, caption, tags in PLAN:
             CoverCandidate(
                 frame_time=round(segments[0].start + 1.5, 2),
                 overlay_text=" ".join(hook.split()[:5]),
+                has_face=faces.has_face(round(segments[0].start + 1.5, 2)) if faces else None,
                 selected=True,
             )
         ],

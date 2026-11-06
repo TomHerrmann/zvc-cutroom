@@ -15,7 +15,7 @@ import re
 import wave
 from pathlib import Path
 
-from .schemas import Transcript, Word
+from .schemas import Segment, Transcript, Word
 
 # Spoken form of tokens the dictionary can't read as written.
 SPOKEN = {
@@ -33,13 +33,51 @@ _LETTER = {
 _TOKEN = re.compile(r"[A-Za-z0-9']+")
 
 
+_ONES = (
+    "zero one two three four five six seven eight nine ten eleven twelve thirteen "
+    "fourteen fifteen sixteen seventeen eighteen nineteen"
+).split()
+_TENS = "_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()
+# ordinal suffixes are dropped ("21st" -> "twenty one"), close enough to align against
+_UNITS = {"mm": "millimeter", "st": "", "nd": "", "rd": "", "th": ""}
+_NUM = re.compile(r"(\d+)([a-z]*)$")
+
+
+def _say_number(n: int) -> str:
+    """0-9999 the way people say it: 16 -> 'sixteen', 1983 -> 'nineteen eighty three'."""
+    if n < 20:
+        return _ONES[n]
+    if n < 100:
+        return _TENS[n // 10] + ("" if n % 10 == 0 else " " + _ONES[n % 10])
+    if n < 1000:
+        rest = "" if n % 100 == 0 else " " + _say_number(n % 100)
+        return f"{_ONES[n // 100]} hundred{rest}"
+    if n % 1000 < 10 or n >= 10000:  # 2005 -> "two thousand five"; long numbers digit by digit
+        if n >= 10000:
+            return " ".join(_ONES[int(c)] for c in str(n))
+        rest = "" if n % 1000 == 0 else " " + _say_number(n % 1000)
+        return f"{_ONES[n // 1000]} thousand{rest}"
+    return f"{_say_number(n // 100)} {_say_number(n % 100)}"
+
+
 def spoken(display_word: str) -> list[str]:
-    """'post-Roe,' -> ['post', 'roe']; '2026' -> ['twenty', 'twenty', 'six']."""
+    """'post-Roe,' -> ['post', 'roe']; '2026' -> ['twenty', 'twenty', 'six'];
+    '16mm' -> ['sixteen', 'millimeter']."""
     out: list[str] = []
     for tok in _TOKEN.findall(display_word.replace("-", " ")):
         tok = tok.lower().strip("'")
-        if tok:
-            out += SPOKEN.get(tok, tok).split()
+        if not tok:
+            continue
+        if tok in SPOKEN:
+            out += SPOKEN[tok].split()
+            continue
+        m = _NUM.match(tok)
+        if m:  # a word with no letters has no pronunciation and crashes the decoder
+            out += _say_number(int(m.group(1))).split()
+            if m.group(2):
+                out += _UNITS.get(m.group(2), m.group(2)).split()
+            continue
+        out.append(tok)
     return out
 
 
@@ -65,7 +103,8 @@ class _Aligner:
             a, b = self.d.lookup_word(tok[:i]), self.d.lookup_word(tok[i:])
             if a and b:
                 return f"{a} {b}"
-        return " ".join(_LETTER[c] for c in tok if c in _LETTER)
+        # never an empty pronunciation: pocketsphinx segfaults on one
+        return " ".join(_LETTER[c] for c in tok if c in _LETTER) or "AH"
 
     def run(self, tokens: list[str], a: float, b: float) -> list[tuple[float, float]] | None:
         """Times for each token in [a, b], or None if the decoder can't fit them."""
@@ -113,6 +152,24 @@ def _chunks(
             first, start = i, at
     out.append((first, len(segs), start, duration))
     return out
+
+
+def reject_stretched(
+    new_segs: list[Segment], orig: list[Segment]
+) -> tuple[list[Segment], list[int]]:
+    """Over long non-speech stretches (a projector running, minutes of silence) the decoder can
+    spread a line's words across the whole gap. A line whose words now span far more time than
+    its subtitle cue is a bad fit: it goes back to its estimated times."""
+    by_id = {s.id: s for s in orig}
+    out, bad = [], []
+    for s in new_segs:
+        cue = by_id[s.id]
+        span, length = s.end - s.start, cue.end - cue.start
+        if s is not cue and span > max(1.5 * length, length + 1.5):
+            bad.append(s.id)
+            s = cue
+        out.append(s)
+    return out, bad
 
 
 def align_transcript(
@@ -181,5 +238,7 @@ def align_transcript(
                 if words
                 else s
             )
-    aligned = transcript.model_copy(update={"segments": new_segs, "word_timing": "aligned"})
-    return aligned, failed
+    checked, stretched = reject_stretched(new_segs, segs)
+    aligned = transcript.model_copy(update={"segments": checked, "word_timing": "aligned"})
+    failed += stretched
+    return aligned, sorted(set(failed))

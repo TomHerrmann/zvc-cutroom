@@ -228,6 +228,220 @@ def resolve_build_cmd(
         raise typer.Exit(1)
 
 
+@app.command("resolve-edit")
+def resolve_edit_cmd(
+    plan: Path = typer.Argument(..., exists=True, help="edit_plan.json from `cutroom pace`."),
+    source: Path = typer.Option(..., exists=True, help="The raw source video."),
+    name: str = typer.Option(..., help="Timeline name (replaced if it exists)."),
+    srt: Path | None = typer.Option(None, exists=True, help="cut.srt for the subtitle track."),
+) -> None:
+    """Build a long-form edit as a Resolve timeline in the open project, then check it."""
+    from . import resolve_build
+
+    try:
+        import DaVinciResolveScript as dvr  # type: ignore[import-not-found]
+    except ImportError as e:
+        console.print("[red]Resolve scripting API not found.[/] Run this on the editing machine "
+                      "with Resolve open and its Modules folder on PYTHONPATH.")  # fmt: skip
+        raise typer.Exit(2) from e
+    resolve = dvr.scriptapp("Resolve")
+    proj = resolve.GetProjectManager().GetCurrentProject()
+    data = json.loads(plan.read_text())
+    with run("resolve-edit") as r:
+        root = proj.GetMediaPool().GetRootFolder()
+        item = resolve_build._pool_item(root, source.name)
+        if item is None:
+            (item,) = proj.GetMediaPool().ImportMedia([str(source)])
+        done = resolve_build.build_edit_timeline(proj, data, item, name, str(srt) if srt else None)
+        problems = resolve_build.check_edit_timeline(proj, data, name)
+        r.record.extra = {"built": done, "problems": problems}
+    console.print(f"[green]built[/] {done['name']}: {done['pieces']} pieces, {done['sped']} sped")
+    for p in problems:
+        console.print(f"[red]check failed[/] {p}")
+    if problems:
+        raise typer.Exit(1)
+
+
+@app.command("propose")
+def propose_cmd(
+    transcript: Path = typer.Argument(..., exists=True, help="transcript.aligned.json"),
+    video: Path | None = typer.Option(
+        None, exists=True, help="video.json: silences, YouTube-only ranges, long review."
+    ),
+    audio: Path | None = typer.Option(
+        None, exists=True, help="16 kHz mono WAV: snap cuts with the audio level map."
+    ),
+    source: Path | None = typer.Option(
+        None, exists=True, help="Source video: face checks for covers and face_on_screen."
+    ),
+    draft_file: Path | None = typer.Option(
+        None, exists=True, help="Use a saved draft instead of calling Claude (no repairs)."
+    ),
+    spoiler: list[str] = typer.Option([], help="Extra per-video spoiler terms."),
+    about: str | None = typer.Option(
+        None, help="One or two sentences on the video's format, e.g. 'a vlog, not a review'."
+    ),
+    root: Path = typer.Option(Path("clips")),
+    rules_path: Path | None = RulesOpt,
+) -> None:
+    """Claude scores moments and drafts clips; validators gate them; passing clips are queued.
+
+    Writes proposal_draft.json next to the transcript (re-run it with --draft-file) and one
+    clip per moment to the store: pending_review if it passed, rejected_by_validator if not.
+    """
+    from . import propose as P
+
+    rules = load_rules(rules_path)
+    t = Transcript.model_validate_json(transcript.read_text())
+    ctx = VideoContext.model_validate_json(video.read_text()) if video else None
+    level = None
+    if audio:
+        from .audio import Level
+
+        level = Level.from_wav(audio)
+    faces = None
+    if source:
+        try:
+            from .faces import FaceProbe
+        except ImportError as e:  # pragma: no cover
+            raise typer.BadParameter("--source needs the `faces` extra") from e
+        faces = FaceProbe(source)
+    store = ClipStore(root)
+    with run("propose", rules.config_hash) as r:
+        if draft_file:
+            draft = P.ProposalDraft.model_validate_json(draft_file.read_text())
+            repair = None
+        else:
+            draft = P.draft_with_claude(rules, t, ctx, spoiler, level, about, run=r)
+            P.save_draft(draft, transcript.with_name("proposal_draft.json"))
+
+            def repair(failed):
+                return P.repair_with_claude(rules, t, failed, ctx, spoiler, level, about, run=r)
+
+        results = P.propose(rules, t, draft, ctx, level, faces, spoiler, repair)
+        # Replace this video's earlier machine proposals, but never one a person has judged.
+        judged = {ClipStatus.APPROVED, ClipStatus.REJECTED_BY_HUMAN, ClipStatus.POSTED}
+        existing = {c.id: c for c in store.list(t.video_id)}
+        for c in existing.values():
+            if c.created_by == "llm" and c.status not in judged:
+                store.remove(c.video_id, c.id)
+        for res in results:
+            if res.clip is None:
+                continue
+            old = existing.get(res.clip.id)
+            if old is not None and (old.created_by != "llm" or old.status in judged):
+                res.clip.id = f"{res.clip.id}-new"
+            store.put(res.clip)
+        r.add_reports([res.report for res in results if res.report is not None])
+        r.record.n_items = len(results)
+        r.record.n_failed = sum(not res.passed for res in results)
+        r.record.n_passed = r.record.n_items - r.record.n_failed
+        passed = [res.clip for res in results if res.passed and res.clip]
+        human = [c for c in existing.values() if c.created_by == "human"]
+        matches, recall = P.match_picks(passed, human) if human else ([], None)
+        r.record.extra = {
+            "repaired": sum(res.attempts > 1 and res.passed for res in results),
+            "uncompiled": sum(res.clip is None for res in results),
+            "human_pick_recall": recall,
+            "from_draft_file": bool(draft_file),
+        }
+    for res in results:
+        mark = "[green]PASS[/]" if res.passed else "[red]REJECT[/]"
+        cid = res.clip.id if res.clip else res.slug
+        dur = f"{res.clip.duration:5.1f}s" if res.clip else "   -  "
+        tries = f" (after {res.attempts - 1} repair)" if res.attempts > 1 else ""
+        console.print(f"{mark} {res.rank:.2f}  {cid:28} {dur}  {res.draft.hook}{tries}")
+        for i in res.problems():
+            console.print(f"      {i.code:26} {i.message}")
+    for m in matches:
+        where = f"{m.auto} (#{m.auto_rank}, overlap {m.overlap:.2f})" if m.auto else "no match"
+        console.print(f"  your pick {m.human:16} -> {where}")
+    if recall is not None:
+        console.print(f"human picks covered: {recall:.0%}")
+    console.print(
+        f"{r.record.n_passed}/{r.record.n_items} passed, ${r.record.cost_usd:.4f}, "
+        f"{r.record.latency_ms / 1000:.1f}s"
+    )
+    if faces:
+        faces.close()
+
+
+@app.command("pace")
+def pace_cmd(
+    transcript: Path = typer.Argument(..., exists=True, help="transcript.aligned.json"),
+    audio: Path | None = typer.Option(
+        None, exists=True, help="16 kHz mono WAV: spoken runs are cut in measured silence."
+    ),
+    frames: Path | None = typer.Option(
+        None, exists=True, help="Video to read motion and contact sheets from (a proxy is fine)."
+    ),
+    draft_file: Path | None = typer.Option(
+        None, exists=True, help="Use a saved pacing draft instead of calling Claude."
+    ),
+    about: str | None = typer.Option(None, help="One or two sentences on the video."),
+    out: Path = typer.Option(..., help="Folder for edit_plan.json, cut.srt and render.sh."),
+    render_source: str | None = typer.Option(
+        None, help="Source path as render.sh should see it (default: --frames)."
+    ),
+    rules_path: Path | None = RulesOpt,
+) -> None:
+    """Long-form pacing: keep the talking, speed up the work, cut the dead air.
+
+    Spoken lines play at real time, cut in silence. Unspoken stretches are labelled from their
+    frames (idle, empty, setup, handwork, repeat, show) and sped up or cut by kind, per the
+    brand rules' longform.pacing section.
+    """
+    from . import pacing as PC
+
+    rules = load_rules(rules_path)
+    t = Transcript.model_validate_json(transcript.read_text())
+    level = None
+    if audio:
+        from .audio import Level
+
+        level = Level.from_wav(audio)
+    motion = PC.Motion.from_video(frames) if frames else None
+    with run("pace", rules.config_hash) as r:
+        if draft_file:
+            draft = PC.PacingDraft.model_validate_json(draft_file.read_text())
+        else:
+            if frames is None:
+                raise typer.BadParameter("a live draft needs --frames for the contact sheets")
+            from .propose import LineRange
+
+            ids = [s.id for s in t.segments]
+            first = [LineRange(first=ids[0], last=ids[-1])]
+            draft = PC.draft_with_claude(rules, t, first, frames, level, about, run=r)
+            PC.save(draft, transcript.with_name("pacing_draft.json"))
+        plan = PC.build_plan(t, draft, rules, level, motion)
+        errors = [i for i in plan.issues if i.severity == "error"]
+        r.record.n_items = len(plan.segments)
+        r.record.n_failed = len(errors)
+        r.record.n_passed = r.record.n_items - r.record.n_failed
+        r.record.failure_codes = dict(Counter(i.code for i in errors))
+        r.record.extra = {**plan.summary(), "from_draft_file": bool(draft_file)}
+    PC.save(plan, out / "edit_plan.json")
+    subtitles.write_srt(PC.retimed(plan, t), out / "cut.srt")
+    src = render_source or (str(frames) if frames else "SOURCE.mov")
+    sh = out / "render.sh"
+    sh.write_text(PC.render_script(plan, src, rules))
+    sh.chmod(0o755)
+    summ = plan.summary()
+    table = Table("part", "pieces", "source s", "in the cut s")
+    for k, v in summ["parts"].items():
+        table.add_row(k, f"{v['count']:g}", f"{v['source']:.1f}", f"{v['out']:.1f}")
+    console.print(table)
+    console.print(
+        f"{summ['source_seconds'] / 60:.1f} min of source -> {summ['cut_seconds'] / 60:.1f} min "
+        f"cut; {summ['dropped_seconds']:.0f}s of unspoken footage dropped"
+    )
+    for i in plan.issues:
+        colour = "red" if i.severity == "error" else "yellow"
+        console.print(f"  [{colour}]{i.code:22}[/] {i.message}")
+    if errors:
+        raise typer.Exit(1)
+
+
 @app.command("review")
 def review_cmd(
     video_id: str = typer.Argument(...),

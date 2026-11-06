@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .schemas import CaptionMode, Format
+from .schemas import CaptionMode, Format, MomentScores
 
 DEFAULT_RULES_PATH = Path(__file__).resolve().parents[2] / "config" / "brand_rules.yaml"
 
@@ -100,6 +100,98 @@ class EndCardRules(_Cfg):
     replaces: list[str] = Field(default_factory=list)
 
 
+class ProposalCTA(_Cfg):
+    text: str
+    kind: Literal["spoken", "overlay"] = "overlay"
+    at: float = Field(default=1.0, ge=0)
+
+
+class ProposalRules(_Cfg):
+    """Milestone 2: Claude scores moments and drafts clips; these rules shape the ask."""
+
+    model: str = "claude-opus-5-5"
+    effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
+    count: int = Field(default=6, ge=1, le=20)  # moments to ask for
+    max_segments: int = Field(default=3, ge=1)  # line ranges stitched into one clip
+    max_repairs: int = Field(default=1, ge=0)  # rounds of "the checks said X, fix it"
+    target_seconds: tuple[float, float] = (20.0, 45.0)  # sweet spot inside the format range
+    cta: ProposalCTA = Field(default_factory=lambda: ProposalCTA(text="Follow Zero Vision Cinema"))
+    # Ranking: weighted mean of the scores that are present.
+    weights: dict[str, float] = Field(
+        default_factory=lambda: {
+            "hook": 0.3,
+            "quote_punch": 0.25,
+            "theme": 0.2,
+            "length_fit": 0.15,
+            "face_on_screen": 0.1,
+        }
+    )
+
+    @model_validator(mode="after")
+    def _known_weights(self) -> ProposalRules:
+        unknown = set(self.weights) - set(MomentScores.model_fields)
+        if unknown:
+            raise ValueError(f"unknown score weights {sorted(unknown)}")
+        lo, hi = self.target_seconds
+        if not 0 < lo < hi:
+            raise ValueError("target_seconds must be (low, high) with 0 < low < high")
+        return self
+
+
+PACE_KINDS = ("idle", "empty", "setup", "handwork", "repeat", "show")
+
+
+class PacingRules(_Cfg):
+    """Long-form pacing: what happens to the stretches with no talking.
+
+    Spoken lines always play at real time. Each unspoken stretch is labelled with one kind
+    (from the frames), and the kind sets its speed: 0 cuts it, 1 keeps it at real time.
+    """
+
+    model: str = "claude-opus-5-5"
+    effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
+    # Unspoken gaps shorter than this between kept lines are natural pauses and stay as shot.
+    min_stretch_seconds: float = Field(default=2.0, gt=0)
+    speeds: dict[str, float] = Field(
+        default_factory=lambda: {
+            "idle": 0,  # standing, thinking, repeating himself: cut
+            "empty": 0,  # nobody in frame: cut
+            "setup": 4,  # big moves: unboxing, carrying, plugging in
+            "handwork": 4,  # hands on the projector or a reel: threading, fixing
+            "repeat": 8,  # the same motion over and over: spooling, rewinding
+            "show": 1,  # something to see with no words: first light, the image
+        }
+    )
+    levels: list[float] = Field(default_factory=lambda: [1, 2, 4, 8])
+    # A stretch this short is a beat between lines: never faster than short_max_speed.
+    short_stretch_seconds: float = 5.0
+    short_max_speed: float = 2
+    # A long stretch steps up the levels until it plays in at most this long.
+    max_output_seconds: float = 15.0
+    # A sped piece that would play shorter than this is dropped (a flash, not a beat).
+    min_output_seconds: float = 0.5
+    # Inside an active stretch, a run this still for this long is cut (he left the frame).
+    still_motion: float = 0.01
+    still_min_seconds: float = 2.0
+    sped_audio_volume: float = Field(default=0.5, ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _known_kinds(self) -> PacingRules:
+        if set(self.speeds) != set(PACE_KINDS):
+            raise ValueError(f"pacing speeds must name exactly {list(PACE_KINDS)}")
+        allowed = {0, *self.levels}
+        bad = {k: v for k, v in self.speeds.items() if v not in allowed}
+        if bad:
+            raise ValueError(f"pacing speeds {bad} are not 0 or one of the levels {self.levels}")
+        if sorted(self.levels) != self.levels or self.levels[0] != 1:
+            raise ValueError("pacing levels must be ascending and start at 1")
+        return self
+
+
+class LongformRules(_Cfg):
+    pacing: PacingRules = Field(default_factory=PacingRules)
+
+
 class BrandRules(_Cfg):
     brand: str
     version: int
@@ -111,6 +203,8 @@ class BrandRules(_Cfg):
     formats: dict[Format, FormatRules]
     subtitles: SubtitleRules
     end_card: EndCardRules | None = None
+    proposals: ProposalRules = Field(default_factory=ProposalRules)
+    longform: LongformRules = Field(default_factory=LongformRules)
     # Set by load_rules; not part of the YAML.
     config_hash: str | None = None
 

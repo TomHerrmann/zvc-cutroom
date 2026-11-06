@@ -40,3 +40,6 @@ class ClipStore:
         clip = self.get(video_id, clip_id).model_copy(update={"status": status})
         self.put(clip)
         return clip
+
+    def remove(self, video_id: str, clip_id: str) -> None:
+        self._path(video_id, clip_id).unlink(missing_ok=True)
