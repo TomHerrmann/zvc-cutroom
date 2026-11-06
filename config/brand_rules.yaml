@@ -119,3 +119,29 @@ proposals:
     theme: 0.2
     length_fit: 0.15
     face_on_screen: 0.1
+
+# Long-form pacing (raw footage to a YouTube cut). Spoken lines keep the clip rules: whole
+# lines, edges in measured silence, real time. Every unspoken stretch longer than
+# min_stretch_seconds is labelled from its frames with one kind, and the kind sets the speed
+# (0 cuts it). Short stretches stay gentle; long ones step up the levels so none plays longer
+# than max_output_seconds. DRAFT: first round, to refine on review.
+longform:
+  pacing:
+    model: claude-opus-5-5
+    effort: high
+    min_stretch_seconds: 2.0
+    speeds:
+      idle: 0          # standing, thinking, repeating himself
+      empty: 0         # nobody in frame
+      setup: 4         # big moves: unboxing, carrying, plugging in
+      handwork: 4      # hands on the projector or a reel
+      repeat: 8        # the same motion over and over: spooling, rewinding
+      show: 1          # something to see with no words
+    levels: [1, 2, 4, 8]
+    short_stretch_seconds: 5.0
+    short_max_speed: 2
+    max_output_seconds: 15.0
+    min_output_seconds: 0.5
+    still_motion: 0.01
+    still_min_seconds: 2.0
+    sped_audio_volume: 0.5

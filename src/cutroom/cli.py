@@ -332,6 +332,82 @@ def propose_cmd(
         faces.close()
 
 
+@app.command("pace")
+def pace_cmd(
+    transcript: Path = typer.Argument(..., exists=True, help="transcript.aligned.json"),
+    audio: Path | None = typer.Option(
+        None, exists=True, help="16 kHz mono WAV: spoken runs are cut in measured silence."
+    ),
+    frames: Path | None = typer.Option(
+        None, exists=True, help="Video to read motion and contact sheets from (a proxy is fine)."
+    ),
+    draft_file: Path | None = typer.Option(
+        None, exists=True, help="Use a saved pacing draft instead of calling Claude."
+    ),
+    about: str | None = typer.Option(None, help="One or two sentences on the video."),
+    out: Path = typer.Option(..., help="Folder for edit_plan.json, cut.srt and render.sh."),
+    render_source: str | None = typer.Option(
+        None, help="Source path as render.sh should see it (default: --frames)."
+    ),
+    rules_path: Path | None = RulesOpt,
+) -> None:
+    """Long-form pacing: keep the talking, speed up the work, cut the dead air.
+
+    Spoken lines play at real time, cut in silence. Unspoken stretches are labelled from their
+    frames (idle, empty, setup, handwork, repeat, show) and sped up or cut by kind, per the
+    brand rules' longform.pacing section.
+    """
+    from . import pacing as PC
+
+    rules = load_rules(rules_path)
+    t = Transcript.model_validate_json(transcript.read_text())
+    level = None
+    if audio:
+        from .audio import Level
+
+        level = Level.from_wav(audio)
+    motion = PC.Motion.from_video(frames) if frames else None
+    with run("pace", rules.config_hash) as r:
+        if draft_file:
+            draft = PC.PacingDraft.model_validate_json(draft_file.read_text())
+        else:
+            if frames is None:
+                raise typer.BadParameter("a live draft needs --frames for the contact sheets")
+            from .propose import LineRange
+
+            ids = [s.id for s in t.segments]
+            first = [LineRange(first=ids[0], last=ids[-1])]
+            draft = PC.draft_with_claude(rules, t, first, frames, level, about, run=r)
+            PC.save(draft, transcript.with_name("pacing_draft.json"))
+        plan = PC.build_plan(t, draft, rules, level, motion)
+        errors = [i for i in plan.issues if i.severity == "error"]
+        r.record.n_items = len(plan.segments)
+        r.record.n_failed = len(errors)
+        r.record.n_passed = r.record.n_items - r.record.n_failed
+        r.record.failure_codes = dict(Counter(i.code for i in errors))
+        r.record.extra = {**plan.summary(), "from_draft_file": bool(draft_file)}
+    PC.save(plan, out / "edit_plan.json")
+    subtitles.write_srt(PC.retimed(plan, t), out / "cut.srt")
+    src = render_source or (str(frames) if frames else "SOURCE.mov")
+    sh = out / "render.sh"
+    sh.write_text(PC.render_script(plan, src, rules))
+    sh.chmod(0o755)
+    summ = plan.summary()
+    table = Table("part", "pieces", "source s", "in the cut s")
+    for k, v in summ["parts"].items():
+        table.add_row(k, f"{v['count']:g}", f"{v['source']:.1f}", f"{v['out']:.1f}")
+    console.print(table)
+    console.print(
+        f"{summ['source_seconds'] / 60:.1f} min of source -> {summ['cut_seconds'] / 60:.1f} min "
+        f"cut; {summ['dropped_seconds']:.0f}s of unspoken footage dropped"
+    )
+    for i in plan.issues:
+        colour = "red" if i.severity == "error" else "yellow"
+        console.print(f"  [{colour}]{i.code:22}[/] {i.message}")
+    if errors:
+        raise typer.Exit(1)
+
+
 @app.command("review")
 def review_cmd(
     video_id: str = typer.Argument(...),

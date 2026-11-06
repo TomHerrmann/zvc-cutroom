@@ -19,7 +19,7 @@ change, and a log of cost, latency and pass rates for every run.
 | 4. Approval queue + metrics feedback into the ranker | not started |
 | 5. Retrieval across the whole channel (RAG over every transcript, below) | not started |
 | 6. Portfolio polish: demo video, published eval results | not started |
-| Stretch: long-form 4K YouTube edits from raw footage, built with an agent ([plan](docs/longform.md)) | planned |
+| Stretch: long-form 4K YouTube edits from raw footage, built with an agent ([plan](docs/longform.md)) | **first piece in review**: `cutroom pace` (talking kept, unspoken work sped up by kind, dead air cut), run on 16mm Journey ep1 from a saved draft |
 
 The only eval set today is `synthetic_smoke`: an invented transcript with one hand-written case
 per guardrail (24 cases). It proves the validators work; it says nothing yet about clip quality.
@@ -120,6 +120,39 @@ also mattered here: he often has his back to the camera, so when the cover frame
 has no face, the nearest frame in the clip that does is used. All six proposals pass, with
 `--about` telling the model it's a vlog and to use one take of the intro.
 
+### Long-form pacing (first piece of the long-form phase)
+
+Raw footage has long stretches with no talking. `cutroom pace` turns one raw take into an
+`EditPlan`: source ranges, each with a playback speed. Spoken lines follow the clip rules:
+whole lines only, one take of anything recorded twice, edges in measured silence, always real
+time. Every unspoken gap of 2 s or more between two kept lines is a stretch, and Claude labels
+each one from a contact sheet of its frames (stamped with source times), splitting it where
+the action changes:
+
+| kind | what it is | first-round speed |
+|---|---|---|
+| idle | standing, thinking, gearing up to talk | cut |
+| empty | nobody in frame | cut |
+| setup | big moves: unboxing, carrying, plugging in | 4x |
+| handwork | hands on the projector or a reel | 4x |
+| repeat | the same motion over and over: spooling, rewinding | 8x |
+| show | worth seeing at real time: the first image on the screen | 1x |
+
+Claude only labels; code picks the speed (`longform.pacing` in the brand rules). A stretch
+under 5 s is a beat between lines and never goes past 2x, a long one steps up the levels
+(1, 2, 4, 8) until it plays in 15 s or less, and any part of a work stretch where the frame is
+measured still for 2 s is cut. Anything left unlabelled is cut and reported. `check_plan`
+then rejects a plan that speeds up or clips a spoken word. Sped parts keep their sound,
+pitch-corrected and at half volume. Outputs: `edit_plan.json`, `cut.srt` (the kept lines on
+the cut's timeline, for YouTube) and `render.sh` (an ffmpeg review render, one file per
+segment, resumable in pieces).
+
+On 16mm Journey ep1, 17.9 minutes of source became a 7.6 minute cut: 6.1 minutes of talk and
+1.4 minutes of sped-up work standing in for 6.6 minutes of it, plus 7 seconds shown at real time. A frame-difference motion
+measure alone couldn't tell "standing still talking himself up" from slow hand work (both
+change about 4% of pixels), and OpenCV's face detector fired on posters and a cushion, which
+is why the kind comes from Claude looking at the frames rather than from a threshold.
+
 ## What's here
 
 | module | role |
@@ -131,6 +164,7 @@ has no face, the nearest frame in the clip that does is used. All six proposals 
 | `captions.py` | Short caption lines from real word times, written as ASS with the spoken word highlighted. |
 | `validators/outro.py` | The end card is required when a longer review exists, spoken sign-offs are rejected, and the card can't point to a review that doesn't exist. |
 | `propose.py` | Milestone 2. Claude reads the numbered transcript lines and returns a typed `ProposalDraft`: per moment, line ranges to play, hook, caption, hashtags, titles, cover text, verbatim quotes, and 0-1 scores for hook, quote punch and theme. Code turns that into a `ClipProposal`, the validators gate it, failures go back to Claude once with the exact issues, and passing clips are ranked and queued for review. |
+| `pacing.py` | Long-form pacing: spoken runs, unspoken stretches, the `PacingDraft` Claude returns (keep ranges + labelled stretches with contact sheets), the `EditPlan` with per-segment speeds, its checks, the retimed SRT and the ffmpeg render script. |
 | `cuts.py` | Line ranges to segments, edges snapped into measured silence. Shared by the proposer and the pilot script. |
 | `faces.py` | OpenCV face check on the source video: the cover frame's face, and `face_on_screen` (share of sampled frames with a face). `faces` extra. |
 | `subtitles.py` | Resolve SRT import/export, the Claude accuracy review (structured output), and the checks that gate each correction. |
@@ -153,6 +187,8 @@ ffmpeg -i episode.mp4 -ac 1 -ar 16000 data/cronov-e01/audio16k.wav
 cutroom align data/cronov-e01/transcript.reviewed.json --audio data/cronov-e01/audio16k.wav
 cutroom propose data/cronov-e01/transcript.aligned.json --video data/cronov-e01/video.json \
     --audio data/cronov-e01/audio16k.wav --source episode.mp4 --about "a vlog, not a review"
+cutroom pace data/cronov-e01/transcript.aligned.json --audio data/cronov-e01/audio16k.wav \
+    --frames proxy.mp4 --out ~/edits/cronov-e01 --render-source episode.mp4
 cutroom validate clips/cronov-e01/ -t data/cronov-e01/transcript.aligned.json \
     --video data/cronov-e01/video.json
 cutroom queue --id cronov-e01
@@ -164,7 +200,7 @@ cutroom eval evals/sets/synthetic_smoke
 cutroom runs
 ```
 
-`review-subs` and `propose` call the Claude API (`ANTHROPIC_API_KEY`); `--review-file` and
+`review-subs`, `propose` and `pace` call the Claude API (`ANTHROPIC_API_KEY`); `--review-file` and
 `--draft-file` replay a saved result without a call. `validate` runs the audio-based cut checks and the end-card rules only when
 `--video` is given.
 

@@ -138,6 +138,60 @@ class ProposalRules(_Cfg):
         return self
 
 
+PACE_KINDS = ("idle", "empty", "setup", "handwork", "repeat", "show")
+
+
+class PacingRules(_Cfg):
+    """Long-form pacing: what happens to the stretches with no talking.
+
+    Spoken lines always play at real time. Each unspoken stretch is labelled with one kind
+    (from the frames), and the kind sets its speed: 0 cuts it, 1 keeps it at real time.
+    """
+
+    model: str = "claude-opus-5-5"
+    effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
+    # Unspoken gaps shorter than this between kept lines are natural pauses and stay as shot.
+    min_stretch_seconds: float = Field(default=2.0, gt=0)
+    speeds: dict[str, float] = Field(
+        default_factory=lambda: {
+            "idle": 0,  # standing, thinking, repeating himself: cut
+            "empty": 0,  # nobody in frame: cut
+            "setup": 4,  # big moves: unboxing, carrying, plugging in
+            "handwork": 4,  # hands on the projector or a reel: threading, fixing
+            "repeat": 8,  # the same motion over and over: spooling, rewinding
+            "show": 1,  # something to see with no words: first light, the image
+        }
+    )
+    levels: list[float] = Field(default_factory=lambda: [1, 2, 4, 8])
+    # A stretch this short is a beat between lines: never faster than short_max_speed.
+    short_stretch_seconds: float = 5.0
+    short_max_speed: float = 2
+    # A long stretch steps up the levels until it plays in at most this long.
+    max_output_seconds: float = 15.0
+    # A sped piece that would play shorter than this is dropped (a flash, not a beat).
+    min_output_seconds: float = 0.5
+    # Inside an active stretch, a run this still for this long is cut (he left the frame).
+    still_motion: float = 0.01
+    still_min_seconds: float = 2.0
+    sped_audio_volume: float = Field(default=0.5, ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _known_kinds(self) -> PacingRules:
+        if set(self.speeds) != set(PACE_KINDS):
+            raise ValueError(f"pacing speeds must name exactly {list(PACE_KINDS)}")
+        allowed = {0, *self.levels}
+        bad = {k: v for k, v in self.speeds.items() if v not in allowed}
+        if bad:
+            raise ValueError(f"pacing speeds {bad} are not 0 or one of the levels {self.levels}")
+        if sorted(self.levels) != self.levels or self.levels[0] != 1:
+            raise ValueError("pacing levels must be ascending and start at 1")
+        return self
+
+
+class LongformRules(_Cfg):
+    pacing: PacingRules = Field(default_factory=PacingRules)
+
+
 class BrandRules(_Cfg):
     brand: str
     version: int
@@ -150,6 +204,7 @@ class BrandRules(_Cfg):
     subtitles: SubtitleRules
     end_card: EndCardRules | None = None
     proposals: ProposalRules = Field(default_factory=ProposalRules)
+    longform: LongformRules = Field(default_factory=LongformRules)
     # Set by load_rules; not part of the YAML.
     config_hash: str | None = None
 
