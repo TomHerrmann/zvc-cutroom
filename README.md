@@ -14,7 +14,7 @@ change, and a log of cost, latency and pass rates for every run.
 | milestone | state |
 |---|---|
 | 1. Pilot: harness, brand rules, eval structure, subtitle ingest + review | **done for review**: run on one real video (Breeder, 2026); the live Claude subtitle call is untested (no API key yet) |
-| 2. Automated proposals (LLM scoring + drafting, validated quotes) | not started; the four pilot clips were planned by hand |
+| 2. Automated proposals (LLM scoring + drafting, validated quotes) | **in review**: `cutroom propose`, run on Breeder from a saved draft (6 of 6 proposals pass, 3 of the 4 hand-picked pilot clips recovered). The live Claude call is tested against a fake client only (no API key yet) |
 | 3. Resolve Studio render (scripting API, Smart Reframe, word-highlight captions) | **in review**: `export`, `captions` and `resolve-build` commands, tested against a fake Resolve in CI. The real Resolve run is manual (it needs Resolve Studio on a Mac) |
 | 4. Approval queue + metrics feedback into the ranker | not started |
 | 5. Retrieval across the whole channel (RAG over every transcript, below) | not started |
@@ -80,6 +80,35 @@ map. Whether stitched parts follow one train of thought is still judged by a per
 the clip ends on the ZVC title card ("FULL VIDEO ON YOUTUBE"), which slams in over the last
 12 frames. Spoken sign-offs like "let me know what you think" are rejected.
 
+### Automated proposals (milestone 2)
+
+Claude never writes timestamps. It sees the reviewed subtitle lines numbered `[id] start-end
+text` and answers with line-id ranges, so every cut starts and ends on a whole line, and code
+places the edge in measured silence. Lines are marked in the prompt when they can't be used:
+`LONG-FORM ONLY` (the title card), `SIGN-OFF` (replaced by the end card), and `NO PAUSE AFTER`
+(the speaker runs straight into the next line, so a cut there would land mid-word; this is
+computed with the same cut placement the validator checks). Quotes carry the line ids they come
+from; the quote validator then requires the exact words inside those lines.
+
+What the model can't see is measured, not asked for: `face_on_screen` and the cover's face come
+from the video frames, `length_fit` from the clip length against `proposals.target_seconds`.
+Clips are ranked by a weighted mean of the scores (`proposals.weights` in the brand rules).
+
+A clip that fails validation goes back to Claude once with the failing codes and messages
+(`proposals.max_repairs`). Anything still failing is stored as `rejected_by_validator`, so the
+reviewer can see what was tried; nothing is approved automatically. Re-running replaces earlier
+machine proposals for that video but never touches one a person has judged.
+
+When hand-picked clips exist for the video, `propose` reports which machine clip covers each
+one (overlap of source time) and the share covered, which is the first ranking metric.
+
+On Breeder, from a draft written in the model's output format (no API key yet), the first draft
+had two clips rejected for `CUT_MID_SPEECH`: both ended or started where the speaker doesn't
+pause. That is what led to the `NO PAUSE AFTER` marks. With them, 6 of 6 proposals pass. The
+top clip matches the hand-built "who decides" clip exactly, "gender swap" overlaps the hand
+pick by 86%, and the verdict clip isn't recovered (the hand pick stitches three ranges the
+draft didn't choose).
+
 ## What's here
 
 | module | role |
@@ -90,6 +119,9 @@ the clip ends on the ZVC title card ("FULL VIDEO ON YOUTUBE"), which slams in ov
 | `align.py` / `audio.py` | Forced alignment of the reviewed words to the audio, and the audio level map that cut edges snap to. |
 | `captions.py` | Short caption lines from real word times, written as ASS with the spoken word highlighted. |
 | `validators/outro.py` | The end card is required when a longer review exists, spoken sign-offs are rejected, and the card can't point to a review that doesn't exist. |
+| `propose.py` | Milestone 2. Claude reads the numbered transcript lines and returns a typed `ProposalDraft`: per moment, line ranges to play, hook, caption, hashtags, titles, cover text, verbatim quotes, and 0-1 scores for hook, quote punch and theme. Code turns that into a `ClipProposal`, the validators gate it, failures go back to Claude once with the exact issues, and passing clips are ranked and queued for review. |
+| `cuts.py` | Line ranges to segments, edges snapped into measured silence. Shared by the proposer and the pilot script. |
+| `faces.py` | OpenCV face check on the source video: the cover frame's face, and `face_on_screen` (share of sampled frames with a face). `faces` extra. |
 | `subtitles.py` | Resolve SRT import/export, the Claude accuracy review (structured output), and the checks that gate each correction. |
 | `evals.py` | Eval sets of hand-labelled good and bad clips. Reports gate accuracy, good-pass rate, bad-catch rate, and whether bad clips were caught for the right reason. |
 | `runlog.py` | Appends a record per command to `runs/runs.jsonl`: latency, tokens, cost, pass/fail counts, failure codes, git sha, brand-rules hash. |
@@ -101,13 +133,15 @@ the clip ends on the ZVC title card ("FULL VIDEO ON YOUTUBE"), which slams in ov
 ## Usage
 
 ```bash
-pip install -e ".[dev,align]"
+pip install -e ".[dev,align,faces]"
 # In Resolve: generate subtitles from audio, export the subtitle track as SRT
 cutroom import-srt episode.srt --id cronov-e01 --duration 3600
 cutroom review-subs data/cronov-e01/transcript.resolve.json --glossary names.txt
 #   -> subtitles.reviewed.srt (the YouTube caption file) + subtitle_questions.md
 ffmpeg -i episode.mp4 -ac 1 -ar 16000 data/cronov-e01/audio16k.wav
 cutroom align data/cronov-e01/transcript.reviewed.json --audio data/cronov-e01/audio16k.wav
+cutroom propose data/cronov-e01/transcript.aligned.json --video data/cronov-e01/video.json \
+    --audio data/cronov-e01/audio16k.wav --source episode.mp4 --about "a vlog, not a review"
 cutroom validate clips/cronov-e01/ -t data/cronov-e01/transcript.aligned.json \
     --video data/cronov-e01/video.json
 cutroom queue --id cronov-e01
@@ -119,8 +153,8 @@ cutroom eval evals/sets/synthetic_smoke
 cutroom runs
 ```
 
-`review-subs` calls the Claude API (`ANTHROPIC_API_KEY`); `--review-file` applies a saved review
-without a call. `validate` runs the audio-based cut checks and the end-card rules only when
+`review-subs` and `propose` call the Claude API (`ANTHROPIC_API_KEY`); `--review-file` and
+`--draft-file` replay a saved result without a call. `validate` runs the audio-based cut checks and the end-card rules only when
 `--video` is given.
 
 ## To do

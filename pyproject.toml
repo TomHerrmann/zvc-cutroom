@@ -16,6 +16,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.5"]
 align = ["pocketsphinx>=5"]
+faces = ["opencv-python-headless>=4.9,<5"]
 
 [project.scripts]
 cutroom = "cutroom.cli:app"
