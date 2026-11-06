@@ -14,7 +14,7 @@ change, and a log of cost, latency and pass rates for every run.
 | milestone | state |
 |---|---|
 | 1. Pilot: harness, brand rules, eval structure, subtitle ingest + review | **done for review**: run on one real video (Breeder, 2026); the live Claude subtitle call is untested (no API key yet) |
-| 2. Automated proposals (LLM scoring + drafting, validated quotes) | **in review**: `cutroom propose`, run on Breeder from a saved draft (6 of 6 proposals pass, 3 of the 4 hand-picked pilot clips recovered). The live Claude call is tested against a fake client only (no API key yet) |
+| 2. Automated proposals (LLM scoring + drafting, validated quotes) | **in review**: `cutroom propose`, run from saved drafts on Breeder (6 of 6 pass, 3 of the 4 hand-picked pilot clips recovered) and on raw vlog footage (16mm Journey ep1, 6 of 6 pass). The live Claude call is tested against a fake client only (no API key yet) |
 | 3. Resolve Studio render (scripting API, Smart Reframe, word-highlight captions) | **in review**: `export`, `captions` and `resolve-build` commands, tested against a fake Resolve in CI. The real Resolve run is manual (it needs Resolve Studio on a Mac) |
 | 4. Approval queue + metrics feedback into the ranker | not started |
 | 5. Retrieval across the whole channel (RAG over every transcript, below) | not started |
@@ -108,6 +108,17 @@ pause. That is what led to the `NO PAUSE AFTER` marks. With them, 6 of 6 proposa
 top clip matches the hand-built "who decides" clip exactly, "gender swap" overlaps the hand
 pick by 86%, and the verdict clip isn't recovered (the hand pick stitches three ranges the
 draft didn't choose).
+
+The second test was a different format: episode 1 of 16mm Journey, 18 minutes of raw, unedited
+phone footage (a vlog, with the intro recorded seven times). It found three things a finished
+review never hit, all fixed here: numbers like "16mm" had no pronunciation and crashed the
+aligner; the projector's motor noise sat above the fixed -55 dB silence level, so pauses are
+now measured against the local noise floor when there is one (gated audio is unchanged); and
+over long stretches with no talking the aligner spread a line's words across a minute, so a
+line whose words span far more than its subtitle cue keeps its estimated times. The face check
+also mattered here: he often has his back to the camera, so when the cover frame Claude picks
+has no face, the nearest frame in the clip that does is used. All six proposals pass, with
+`--about` telling the model it's a vlog and to use one take of the intro.
 
 ## What's here
 

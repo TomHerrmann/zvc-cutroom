@@ -116,7 +116,7 @@ the line right after one.
 - Open on the line that hooks hardest. Never open mid-thought ("And so...", "Which is why...").
 {card_rule}\
 - Never use lines marked LONG-FORM ONLY.
-- Leave out the reviewer's channel plugs (follow, subscribe, comment) and setup that only \
+- Leave out the creator's channel plugs (follow, subscribe, comment) and setup that only \
 makes sense with the whole video.
 
 Copy:
@@ -219,7 +219,7 @@ def transcript_prompt(
             tags.append("NO PAUSE AFTER")
         tag = f"  ({', '.join(tags)})" if tags else ""
         rows.append(f"[{s.id}] {s.start:.2f}-{s.end:.2f} {s.text.strip()}{tag}")
-    return f"Review: {transcript.video_id}\n\nLines:\n" + "\n".join(rows)
+    return f"Video: {transcript.video_id}\n\nLines:\n" + "\n".join(rows)
 
 
 # --------------------------------------------------------------------------- calls
@@ -333,6 +333,22 @@ def _clamp01(x: float) -> float:
     return min(max(x, 0.0), 1.0)
 
 
+def nearest_face(
+    faces: FaceProbe, segments: list[ClipSegment], t: float, step: float = 0.5
+) -> float | None:
+    """The frame closest to t, inside the clip, that shows a face (sampled every `step`)."""
+    times = []
+    for g in segments:
+        x = g.start + 0.25
+        while x < g.end - 0.25:
+            times.append(round(x, 2))
+            x += step
+    for x in sorted(times, key=lambda x: abs(x - t)):
+        if faces.has_face(x):
+            return x
+    return None
+
+
 def compile_draft(
     m: MomentDraft,
     transcript: Transcript,
@@ -410,13 +426,13 @@ def compile_draft(
     t = round((cue.start + cue.end) / 2, 2) if cue else None
     if t is None or not clip.contains(t):
         t = round(segments[0].start + min(1.5, segments[0].duration / 2), 2)
+    has_face = faces.has_face(t) if faces else None
+    if faces and has_face is False:  # the model can't see the frame; find the nearest face
+        t2 = nearest_face(faces, segments, t)
+        if t2 is not None:
+            t, has_face = t2, True
     clip.covers = [
-        CoverCandidate(
-            frame_time=t,
-            overlay_text=m.cover_text,
-            has_face=faces.has_face(t) if faces else None,
-            selected=True,
-        )
+        CoverCandidate(frame_time=t, overlay_text=m.cover_text, has_face=has_face, selected=True)
     ]
     total = clip.duration + (rules.end_card.seconds if clip.end_card and rules.end_card else 0)
     clip.scores = MomentScores(

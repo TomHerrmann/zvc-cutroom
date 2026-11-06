@@ -55,3 +55,21 @@ def test_cuts_snap_to_real_silence(tmp_path):
     assert clean and 1.2 < t < 1.3 and lv.at(t, 0.01) < -55
     t, clean = lv.cut_out(0.95, 1.36)  # first word really ends at 1.0
     assert clean and 1.0 < t < 1.1 and lv.at(t, 0.01) < -55
+
+
+def test_pauses_found_over_a_steady_noise_floor():
+    """A projector running under the speech: the floor sits above SILENT_DB, so pauses are
+    measured against the local floor instead."""
+    import numpy as np
+
+    from cutroom.audio import HOP, SILENT_DB, Level
+
+    per = int(1 / HOP)
+    db = np.full(per * 20, SILENT_DB + 3.0)  # 20 s of hum at -52 dB
+    for k in range(0, 20, 2):  # speech every other half second
+        db[k * per : k * per + per // 2] = -25.0
+    quiet = Level(db).silences(0, 20, 0.04)
+    assert len(quiet) >= 9  # each gap between words is a pause
+    # gated audio is unchanged: the threshold stays at SILENT_DB
+    gated = np.full(per * 20, -90.0)
+    assert (Level(gated).quiet == SILENT_DB).all()

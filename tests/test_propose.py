@@ -284,3 +284,19 @@ def test_long_form_only_lines_cannot_be_cut(transcript, video, rules):
         moment(lines=[P.LineRange(first=1, last=1)]), transcript, rules, v
     )
     assert clip is None and [i.code for i in issues] == ["LONG_FORM_ONLY_LINE"]
+
+
+def test_cover_moves_to_the_nearest_frame_with_a_face(transcript, video, rules):
+    class FaceAfter:
+        def has_face(self, t):
+            return t >= 54.0
+
+        def share(self, segments, step=2.0):
+            return 0.25
+
+    clip, _ = P.compile_draft(moment(cover_line=2), transcript, rules, video, faces=FaceAfter())
+    cover = clip.covers[0]
+    assert cover.has_face is True and 54.0 <= cover.frame_time < 54.5
+    # no face anywhere in the clip: the cover stays where the model put it and fails the check
+    res = P.check_draft(moment(), transcript, rules, video, faces=FakeFaces(face=False))
+    assert res.clip.covers[0].has_face is False

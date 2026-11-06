@@ -128,3 +128,27 @@ def test_cli_import_review_validate_queue(tmp_path, monkeypatch):
     res = runner.invoke(app, ["queue", "--root", "clips"])
     assert res.exit_code == 0, res.output
     assert "bad-missing-end-card" in res.output and "vertical" in res.output
+
+
+def test_spoken_forms_for_numbers():
+    # a token with no letters has no pronunciation; pocketsphinx crashes on an empty one
+    assert align.spoken("16mm") == ["sixteen", "millimeter"]
+    assert align.spoken("2") == ["two"]
+    assert align.spoken("1983") == ["nineteen", "eighty", "three"]
+    assert align.spoken("21st") == ["twenty", "one"]
+    assert align.spoken("100") == ["one", "hundred"]
+
+
+def test_stretched_lines_fall_back_to_estimated_times():
+    est = _t("estimated").segments
+    good = est[0].model_copy(update={"start": 10.1, "end": 11.0})
+    # the decoder smeared line 1 across 40 seconds of non-speech
+    smeared = est[1].model_copy(
+        update={
+            "start": 1.0,
+            "end": 41.0,
+            "words": [W("Skipped", 1.0, 1.4), W("line.", 40.5, 41.0)],
+        }
+    )
+    out, bad = align.reject_stretched([good, smeared, est[2]], est)
+    assert bad == [1] and out[1] is est[1] and out[0] is good
