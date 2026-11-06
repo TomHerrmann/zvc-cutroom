@@ -16,7 +16,7 @@ from . import subtitles
 from .config import load_rules
 from .evals import run_eval, save_result
 from .runlog import git_sha, read_runs, run
-from .schemas import ClipProposal, Transcript, VideoContext
+from .schemas import ClipProposal, ClipStatus, Transcript, VideoContext
 from .store import ClipStore
 from .validators import validate_clip
 
@@ -141,6 +141,109 @@ def align_cmd(
     console.print(f"[green]wrote[/] {out}  ({len(aligned.words())} words)")
     if failed:
         console.print(f"[yellow]{len(failed)} lines kept estimated times:[/] {failed}")
+
+
+@app.command("video-context")
+def video_context_cmd(
+    video: Path = typer.Argument(..., exists=True, help="The finished long-form video."),
+    video_id: str = typer.Option(..., "--id"),
+    youtube_only: list[str] = typer.Option(
+        [], help="Long-form-only range in seconds, e.g. 8.23-14.53 for the title card."
+    ),
+    long_review: str | None = typer.Option(None, help="Title or URL of the full YouTube review."),
+    scenes: bool = typer.Option(False, help="Print hard cuts in the first minute (title card)."),
+    out_dir: Path = typer.Option(Path("data")),
+) -> None:
+    """Audio + silence map + per-video facts -> data/ID/audio16k.wav and video.json."""
+    from .video import build_context, extract_audio, parse_range, scene_changes
+
+    d = out_dir / video_id
+    wav = extract_audio(video, d / "audio16k.wav")
+    if scenes:
+        console.print(f"hard cuts in the first minute: {scene_changes(video)}")
+    ctx = build_context(video_id, wav, [parse_range(r) for r in youtube_only], long_review)
+    (d / "video.json").write_text(ctx.model_dump_json(indent=1))
+    console.print(f"[green]wrote[/] {d / 'video.json'}  ({len(ctx.silences)} silences)")
+
+
+@app.command("export")
+def export_cmd(
+    video_id: str = typer.Option(..., "--id"),
+    transcript: Path = typer.Option(..., "--transcript", "-t", exists=True),
+    out_dir: Path = typer.Option(..., "--out", help="Folder Resolve can read."),
+    root: Path = typer.Option(Path("clips")),
+    rules_path: Path | None = RulesOpt,
+) -> None:
+    """Clip store -> plan.json + per-clip SRT and caption (ASS) files."""
+    from .render import export_plan
+
+    rules = load_rules(rules_path)
+    t = Transcript.model_validate_json(transcript.read_text())
+    p = export_plan(ClipStore(root).list(video_id), t, rules, out_dir)
+    console.print(f"[green]wrote[/] {p}  ({len(json.loads(p.read_text()))} clips)")
+
+
+@app.command("captions")
+def captions_cmd(
+    plan: Path = typer.Argument(..., exists=True, help="plan.json from `cutroom export`."),
+    fonts: Path | None = typer.Option(None, help="Folder with the caption font, relative to plan."),
+) -> None:
+    """Render each clip's word-highlight caption overlay (needs ffmpeg with libass)."""
+    from .render import render_overlays
+
+    for f in render_overlays(plan, fonts):
+        console.print(f"[green]wrote[/] {f}")
+
+
+@app.command("resolve-build")
+def resolve_build_cmd(
+    plan: Path = typer.Argument(..., exists=True),
+    source: Path = typer.Option(..., exists=True, help="The long-form source video."),
+    project: str | None = typer.Option(None, help="Resolve project (default: the open one)."),
+    reframe: bool = typer.Option(True, help="Run Smart Reframe on every cut."),
+) -> None:
+    """Build every clip's timeline in DaVinci Resolve Studio, then check it against the plan."""
+    from . import resolve_build
+
+    try:
+        import DaVinciResolveScript as dvr  # type: ignore[import-not-found]
+    except ImportError as e:
+        console.print("[red]Resolve scripting API not found.[/] Run this on the editing machine "
+                      "with Resolve open and its Modules folder on PYTHONPATH.")  # fmt: skip
+        raise typer.Exit(2) from e
+    resolve = dvr.scriptapp("Resolve")
+    with run("resolve-build") as r:
+        done = resolve_build.build_all(resolve, plan, source, project, reframe=reframe)
+        proj = resolve.GetProjectManager().GetCurrentProject()
+        problems = [p for e in json.loads(plan.read_text())
+                    for p in resolve_build.check_clip(proj, e)]  # fmt: skip
+        r.record.extra = {"built": done, "problems": problems}
+    for d in done:
+        console.print(
+            f"[green]built[/] {d['id']}: {d['segments']} cuts, {d['video_frames']} frames"
+        )
+    for p in problems:
+        console.print(f"[red]check failed[/] {p}")
+    if problems:
+        raise typer.Exit(1)
+
+
+@app.command("review")
+def review_cmd(
+    video_id: str = typer.Argument(...),
+    clip_id: str = typer.Argument(...),
+    verdict: str = typer.Argument(..., help="post | never"),
+    note: str | None = typer.Option(None, help="Why. Feeds the real eval set."),
+    root: Path = typer.Option(Path("clips")),
+) -> None:
+    """Record a person's verdict on a clip: would post it, or never would."""
+    status = {"post": ClipStatus.APPROVED, "never": ClipStatus.REJECTED_BY_HUMAN}.get(verdict)
+    if status is None:
+        raise typer.BadParameter("verdict must be 'post' or 'never'")
+    store = ClipStore(root)
+    clip = store.get(video_id, clip_id).model_copy(update={"status": status, "review_note": note})
+    store.put(clip)
+    console.print(f"{clip.id}: {status.value}" + (f"  ({note})" if note else ""))
 
 
 @app.command()

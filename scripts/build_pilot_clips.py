@@ -1,13 +1,12 @@
 """Build the Breeder pilot clip proposals from transcript lines, snapping every cut into
 measured silence. Output: clips/breeder-2026-review/*.json (the edit decisions Resolve renders)."""
 
-import json
 import sys
 from pathlib import Path
 
 from cutroom.audio import Level
-from cutroom.captions import write_ass
 from cutroom.config import load_rules
+from cutroom.render import export_plan
 from cutroom.schemas import (
     CTA,
     ClipProposal,
@@ -18,7 +17,6 @@ from cutroom.schemas import (
     VideoContext,
 )
 from cutroom.store import ClipStore
-from cutroom.subtitles import clip_transcript, write_srt
 from cutroom.validators import validate_clip
 
 D = Path("data/breeder-2026-review")
@@ -129,34 +127,7 @@ for cid, hook, ranges, caption, tags in PLAN:
     for g in segments:
         print(f"    {g.start:8.3f} -> {g.end:8.3f}")
 
-# Resolve hand-off: segment list + per-clip SRT re-timed onto the clip timeline.
+# Resolve hand-off: plan.json + per-clip SRT and caption files (same as `cutroom export`).
 out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("data") / t.video_id / "resolve"
-out_dir.mkdir(parents=True, exist_ok=True)
-plan = []
-for cid, *_ in PLAN:
-    clip = store.get(t.video_id, cid)
-    ct = clip_transcript(t, clip)
-    write_srt(ct, out_dir / f"{cid}.srt")
-    # captions stop where the end card starts to slam over the video
-    card_in = clip.duration - (rules.end_card.overlap_frames / 30 if clip.end_card else 0)
-    write_ass(ct, rules, out_dir / f"{cid}.ass", end_at=card_in)
-    plan.append(
-        {
-            "id": cid,
-            "segments": [[round(g.start, 3), round(g.end, 3)] for g in clip.segments],
-            "srt": f"{cid}.srt",
-            "captions": f"{cid}.ass",
-            "duration": round(clip.duration, 3),
-            "end_card": clip.end_card
-            and {
-                "title": rules.end_card.title,
-                "topic_title": clip.end_card,
-                "label": rules.end_card.label,
-                "seconds": rules.end_card.seconds,
-                "transition_in": rules.end_card.transition_in,
-                "overlap_frames": rules.end_card.overlap_frames,
-            },
-        }
-    )
-(out_dir / "plan.json").write_text(json.dumps(plan, indent=1))
-print(f"wrote {out_dir}/plan.json")
+p = export_plan([store.get(t.video_id, cid) for cid, *_ in PLAN], t, rules, out_dir)
+print(f"wrote {p}")

@@ -193,6 +193,8 @@ class ClipProposal(_Model):
     captions: CaptionMode = CaptionMode.BURNED_IN
     scores: MomentScores = Field(default_factory=MomentScores)
     status: ClipStatus = ClipStatus.PROPOSED
+    # Why a person approved or turned the clip down; feeds the real eval set.
+    review_note: str | None = None
     created_by: Literal["human", "llm", "fixture"] = "human"
 
     @property
