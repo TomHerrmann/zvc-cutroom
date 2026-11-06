@@ -33,7 +33,7 @@ def test_ass_highlights_the_spoken_word(rules, tmp_path):
     events = [line for line in out.splitlines() if line.startswith("Dialogue")]
     assert len(events) == 3  # one per word, each with that word in the highlight color
     assert "{\\c&H00C68C4A}FAT{\\c&H00F6FDFF}" in events[1]
-    assert "Montserrat ExtraBold" in out
+    assert f"Style: Caption,{rules.subtitles.caption_style.font}," in out
     with pytest.raises(ValueError):
         write_ass(t.model_copy(update={"word_timing": "estimated"}), rules, tmp_path / "e.ass")
 

@@ -72,8 +72,8 @@ subtitles:
     vertical: 22
     wide: 42
   caption_style:                 # vertical burned-in captions; DRAFT
-    font: Montserrat ExtraBold
-    size: 84
+    font: Acid TM                # ZVC brand font (assets/completed/brand/Fonts/Acid-TM)
+    size: 104                    # Acid TM sets small; 104 matches the old 84 Montserrat width
     uppercase: true
     max_words: 3
     outline: 7

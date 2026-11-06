@@ -15,7 +15,7 @@ change, and a log of cost, latency and pass rates for every run.
 |---|---|
 | 1. Pilot: harness, brand rules, eval structure, subtitle ingest + review | **done for review**: run on one real video (Breeder, 2026); the live Claude subtitle call is untested (no API key yet) |
 | 2. Automated proposals (LLM scoring + drafting, validated quotes) | **in review**: `cutroom propose`, run from saved drafts on Breeder (6 of 6 pass, 3 of the 4 hand-picked pilot clips recovered) and on raw vlog footage (16mm Journey ep1, 6 of 6 pass). The live Claude call is tested against a fake client only (no API key yet) |
-| 3. Resolve Studio render (scripting API, Smart Reframe, word-highlight captions) | **in review**: `export`, `captions` and `resolve-build` commands, tested against a fake Resolve in CI. The real Resolve run is manual (it needs Resolve Studio on a Mac) |
+| 3. Resolve Studio render (scripting API, Smart Reframe, word-highlight captions) | **in review**: `export`, `captions` and `resolve-build` commands, tested against a fake Resolve in CI, and run for real in Resolve Studio 21 on the six 16mm Journey ep1 clips (Smart Reframe, Acid TM word-highlight captions, end card, H.264 render) |
 | 4. Approval queue + metrics feedback into the ranker | not started |
 | 5. Retrieval across the whole channel (RAG over every transcript, below) | not started |
 | 6. Portfolio polish: demo video, published eval results | not started |
@@ -67,7 +67,7 @@ Vertical clips need more than an SRT. Resolve gives one time range per line, and
 API can't style subtitles or animate them word by word. So `cutroom align` force-aligns the
 reviewed text to the audio. This uses pocketsphinx's bundled English model, and it only times
 words that are already known; it does no transcription. Captions are then built from those word
-times: at most 3 words / 22 characters per line, Montserrat ExtraBold, with the spoken word in
+times: at most 3 words / 22 characters per line, in the brand font Acid TM, with the spoken word in
 brand blue. An ASS file is written per clip and rendered with ffmpeg/libass to a transparent QuickTime
 Animation overlay above the video. Resolve ignored ProRes 4444 alpha in testing; QuickTime
 Animation composites correctly. `cutroom captions` renders the overlays (it needs ffmpeg built with libass).
