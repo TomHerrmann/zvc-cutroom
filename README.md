@@ -145,7 +145,9 @@ measured still for 2 s is cut. Anything left unlabelled is cut and reported. `ch
 then rejects a plan that speeds up or clips a spoken word. Sped parts keep their sound,
 pitch-corrected and at half volume. Outputs: `edit_plan.json`, `cut.srt` (the kept lines on
 the cut's timeline, for YouTube) and `render.sh` (an ffmpeg review render, one file per
-segment, resumable in pieces).
+segment, resumable in pieces). `cutroom resolve-edit` builds the same plan as a Resolve
+timeline: real speed changes on the clips (pitch-corrected), sped pieces coloured by speed,
+and the SRT on a subtitle track, read back and checked against the plan.
 
 On 16mm Journey ep1, 17.9 minutes of source became a 7.6 minute cut: 6.1 minutes of talk and
 1.4 minutes of sped-up work standing in for 6.6 minutes of it, plus 7 seconds shown at real time. A frame-difference motion
@@ -189,6 +191,8 @@ cutroom propose data/cronov-e01/transcript.aligned.json --video data/cronov-e01/
     --audio data/cronov-e01/audio16k.wav --source episode.mp4 --about "a vlog, not a review"
 cutroom pace data/cronov-e01/transcript.aligned.json --audio data/cronov-e01/audio16k.wav \
     --frames proxy.mp4 --out ~/edits/cronov-e01 --render-source episode.mp4
+cutroom resolve-edit ~/edits/cronov-e01/edit_plan.json --source episode.mp4 \
+    --name "cronov-e01 v1" --srt ~/edits/cronov-e01/cut.srt
 cutroom validate clips/cronov-e01/ -t data/cronov-e01/transcript.aligned.json \
     --video data/cronov-e01/video.json
 cutroom queue --id cronov-e01
