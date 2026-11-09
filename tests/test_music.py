@@ -28,7 +28,23 @@ def plan(*segs, title_before=None):
 
 
 R = MusicRules(merge_gap_seconds=4, fade_in_seconds=0.5, fade_out_seconds=1.0,
-               duck_ramp_seconds=0.25, bed_db=-4, duck_db=-12)  # fmt: skip
+               tail_seconds=1.0, duck_ramp_seconds=0.25, bed_db=-4, duck_db=-12)  # fmt: skip
+
+
+def test_by_default_music_plays_only_under_sped_pieces():
+    p = plan(
+        seg(0, 10),
+        seg(10, 50, 8, "handwork"),  # 10-15
+        seg(50, 66, 8, "repeat"),  # 15-17, straight after: same run
+        seg(66, 68),  # a 2s line ends the run
+        seg(68, 76, 4, "repeat"),  # 19-21
+        seg(76, 90),
+    )
+    a, b = M.music_cues(M.layout(p), MusicRules())
+    assert a.segments == [1, 2] and (a.start, a.end) == (10.0, 17.0)
+    assert b.segments == [4] and (b.start, b.end) == (19.0, 21.0)
+    assert a.points[-1] == (17.0, M.SILENT_DB) and a.points[-2] == (16.6, -5)
+    assert all(db in (M.SILENT_DB, -5) for _, db in a.points + b.points)  # nothing ducked
 
 
 def test_layout_matches_render_sh_frame_rounding():

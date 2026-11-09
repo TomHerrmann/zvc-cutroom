@@ -220,10 +220,14 @@ class MusicRules(_Cfg):
     track_lufs: float = -20.0
     bed_db: float = Field(default=-5.0, le=0)  # under sped pieces
     duck_db: float = Field(default=-12.0, le=0)  # further down under real-time pieces in a run
-    # Real-time pieces up to this long between two sped pieces keep the music going, ducked.
-    merge_gap_seconds: float = Field(default=8.0, ge=0)
-    fade_in_seconds: float = Field(default=0.4, ge=0)
-    fade_out_seconds: float = Field(default=1.2, ge=0)
+    # Music is only for sped-up parts: by default any real-time piece (talking) ends the run.
+    # Raise this to keep the music going, ducked, under lines up to this long between sped pieces.
+    merge_gap_seconds: float = Field(default=0.0, ge=0)
+    fade_in_seconds: float = Field(default=0.25, ge=0)
+    fade_out_seconds: float = Field(default=0.4, ge=0)
+    # How far the fade-out may run past the last sped piece; 0 means it is silent by the time
+    # the talking starts.
+    tail_seconds: float = Field(default=0.0, ge=0)
     duck_ramp_seconds: float = Field(default=0.25, ge=0)
     crossfade_seconds: float = Field(default=2.0, ge=0)  # between tracks in the playlist
 

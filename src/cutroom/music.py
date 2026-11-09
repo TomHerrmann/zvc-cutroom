@@ -5,11 +5,10 @@ lowered, which on its own sounds thin. This module lays a music bed under it:
 
   1. `layout` places every piece of an `EditPlan` on the cut's timeline, frame-rounded the same
      way `render_script` cuts them, with the title card as its own piece when it is included.
-  2. `music_cues` groups sped pieces into runs. Real-time pieces (a quick line, a short look)
-     no longer than `merge_gap_seconds` between two sped pieces stay inside the run with the
-     music ducked under them; a longer stretch of talking, the title card, or the end of the
-     video ends the run. Each run is a list of (time, dB) points: fade in at its first sped
-     piece, duck under the real-time pieces inside it, and fade out after its last sped piece.
+  2. `music_cues` groups back-to-back sped pieces into runs; music is for the sped-up parts
+     only, so by default any talking ends a run (`merge_gap_seconds` can keep it going, ducked,
+     under short lines). Each run is a list of (time, dB) points: a short fade in at its first
+     sped piece and a fade out that is silent by the end of its last one.
   3. `build_bed` decodes the tracks (loudness-normalised), plays them as one continuous
      playlist that only advances while a run is playing, so every run picks up where the last
      one stopped, multiplies by the envelope and writes one WAV the length of the cut. Silence
@@ -102,7 +101,7 @@ def music_cues(pieces: Sequence[Piece], rules: MusicRules) -> list[Cue]:
     for run in runs:
         start, last = run[0].start, run[-1].end
         nxt = [p.start for p in pieces if p.kind == "title" and p.start >= last]
-        stop = min([last + rules.fade_out_seconds, end_of_cut, *nxt])
+        stop = min([last + rules.tail_seconds, end_of_cut, *nxt])
         bed, duck = rules.bed_db, rules.bed_db + rules.duck_db
         pts = [(start, SILENT_DB), (min(start + rules.fade_in_seconds, last), bed)]
         for p in run[1:]:
@@ -112,8 +111,8 @@ def music_cues(pieces: Sequence[Piece], rules: MusicRules) -> list[Cue]:
             # the ramp happens just after the boundary, never before the previous point
             a = max(p.start, pts[-1][0])
             pts += [(a, pts[-1][1]), (min(a + rules.duck_ramp_seconds, p.end), lvl)]
-        # The fade starts where the last sped piece ends and tails under what follows; with no
-        # room for that (end of the video, the title card) it finishes on the boundary instead.
+        # The fade finishes by the end of the last sped piece plus any allowed tail (never past
+        # the title card or the end of the video).
         fade_from = max(min(last, stop - rules.fade_out_seconds), pts[-1][0])
         pts += [(fade_from, pts[-1][1]), (stop, SILENT_DB)]
         cues.append(
