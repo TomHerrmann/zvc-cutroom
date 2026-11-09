@@ -186,6 +186,7 @@ def build_edit_timeline(
     width: int = 3840,
     height: int = 2160,
     sped_volume_db: float = -6.0,
+    title_item: Any | None = None,
 ) -> dict:
     """Build a long-form edit (`pacing.EditPlan` as a dict) as one 16:9 timeline.
 
@@ -193,6 +194,10 @@ def build_edit_timeline(
     rippling the timeline), its sound lowered, and a clip colour by speed so the edit reads at
     a glance. The retimed SRT, if given, goes on a subtitle track. An existing timeline with
     the same name is replaced.
+
+    With the plan's title card and `title_item` (the per-video title timeline from
+    `prepare_title`), the title plays as a nested timeline before its segment, so its video
+    and every sound track stay in sync as one block.
     """
     mp = project.GetMediaPool()
     old = _timelines(project).get(name)
@@ -210,10 +215,15 @@ def build_edit_timeline(
          "endFrame": round(s["end"] * FPS)}
         for s in segs
     ]  # fmt: skip
+    card = plan.get("title_card")
+    at = card["before_segment"] if card and title_item is not None else None
+    if at is not None:
+        infos.insert(at, {"mediaPoolItem": title_item})
     mp.AppendToTimeline(infos)
     sped = 0
     for i, s in enumerate(segs):
-        v, a = tl.GetItemListInTrack("video", 1)[i], tl.GetItemListInTrack("audio", 1)[i]
+        k = i + (1 if at is not None and i >= at else 0)
+        v, a = tl.GetItemListInTrack("video", 1)[k], tl.GetItemListInTrack("audio", 1)[k]
         if s["kind"] == "show":
             v.SetClipColor("Teal")
             a.SetClipColor("Teal")
@@ -243,7 +253,34 @@ def build_edit_timeline(
             mp.AppendToTimeline([{"mediaPoolItem": imported[0], "recordFrame": tl.GetStartFrame()}])
             subs = len(tl.GetItemListInTrack("subtitle", 1) or [])
     return {"name": name, "pieces": len(segs), "sped": sped, "subtitles": subs,
-            "frames": tl.GetEndFrame() - tl.GetStartFrame()}  # fmt: skip
+            "title": at is not None, "frames": tl.GetEndFrame() - tl.GetStartFrame()}  # fmt: skip
+
+
+def prepare_title(project: Any, template: str, name: str, text_tool: str, text: str) -> Any:
+    """This video's copy of the title card: the template timeline (DRT) imported under `name`,
+    with `text_tool`'s text replaced. Returns its media pool item, ready to nest."""
+    mp = project.GetMediaPool()
+    old = _timelines(project).get(name)
+    if old is not None:
+        mp.DeleteTimelines([old])
+    tl = mp.ImportTimelineFromFile(template, {"timelineName": name, "importSourceClips": True})
+    if tl is None:
+        raise RuntimeError(f"could not import the title template {template}")
+    tl.SetName(name)
+    hits = 0
+    for t in range(1, tl.GetTrackCount("video") + 1):
+        for item in tl.GetItemListInTrack("video", t) or []:
+            for c in range(1, item.GetFusionCompCount() + 1):
+                tool = item.GetFusionCompByIndex(c).FindTool(text_tool)
+                if tool is not None:
+                    tool.SetInput("StyledText", text)
+                    hits += 1
+    if not hits:
+        raise RuntimeError(f"no {text_tool!r} text in the title template")
+    item = _pool_item(mp.GetRootFolder(), name)
+    if item is None:
+        raise RuntimeError(f"title timeline {name!r} not found in the media pool")
+    return item
 
 
 def check_edit_timeline(project: Any, plan: dict, name: str, slack_frames: int = 2) -> list[str]:
@@ -253,6 +290,11 @@ def check_edit_timeline(project: Any, plan: dict, name: str, slack_frames: int =
         return [f"{name}: timeline missing"]
     items = tl.GetItemListInTrack("video", 1)
     segs = plan["segments"]
+    card = plan.get("title_card")
+    if card and len(items) == len(segs) + 1:
+        title = items.pop(card["before_segment"])
+        if abs(title.GetDuration() - card["seconds"] * FPS) > FPS / 2:
+            return [f"{name}: title card is {title.GetDuration()} frames, plan {card['seconds']}s"]
     if len(items) != len(segs):
         return [f"{name}: {len(items)} pieces on V1, plan has {len(segs)}"]
     out = []

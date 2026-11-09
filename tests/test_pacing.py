@@ -296,6 +296,8 @@ class _Project:
                         tl.items.append(
                             _Item(tl, tl.GetEndFrame(), i["endFrame"] - i["startFrame"])
                         )
+                    elif "recordFrame" not in i:  # a nested timeline: the title card
+                        tl.items.append(_Item(tl, tl.GetEndFrame(), 189))
                     else:
                         tl.subs = [_Item(tl, tl.GetStartFrame() + k * 30, 30) for k in range(3)]
                 return True
@@ -336,3 +338,47 @@ def test_resolve_edit_timeline_matches_the_plan(raw, rules):
     problems = RB.check_edit_timeline(proj, data, "ep v1")
     assert any("plays at 400" in p for p in problems)
     assert any("subtitles run past" in p for p in problems)
+
+
+def titled():
+    return PC.PacingDraft(
+        keep=keep(), labels=labels(), title=PC.TitleDraft(after_line=1, text="Raw: First Light")
+    )
+
+
+def test_title_card_goes_after_the_hook_and_shifts_the_cut(raw, rules):
+    plain = PC.build_plan(raw, PC.PacingDraft(keep=keep(), labels=labels()), rules)
+    plan = PC.build_plan(raw, titled(), rules)
+    assert not [i for i in plan.issues if i.severity == "error"], plan.issues
+    card = plan.title_card
+    assert card.before_segment == 1 and card.text == "Raw: First Light"
+    # line 1 now ends its own run, so the card sits between lines 1 and 2
+    assert plan.segments[0].lines == [1] and plan.segments[1].lines == [2]
+    secs = rules.longform.title_card.seconds
+    # plus the card, minus the short pause between lines 1 and 2 that the split drops
+    assert plain.out_duration + secs - 0.7 < plan.out_duration < plain.out_duration + secs
+    assert plan.out_time(13.1) - plan.out_time(12.0) > secs
+    sh = PC.render_script(plan, "src.mov", rules)
+    assert "Raw: First Light" in sh  # noted: the review render leaves the card out
+
+
+def test_title_card_must_follow_a_kept_line_and_fit(raw, rules):
+    d = titled()
+    d.title = PC.TitleDraft(after_line=0, text="x" * 60)
+    plan = PC.build_plan(raw, d, rules)
+    assert plan.title_card is None
+    assert "TITLE_AFTER_UNKNOWN_LINE" in {i.code for i in plan.issues}
+    d.title = PC.TitleDraft(after_line=1, text="x" * 60)
+    assert "TITLE_TOO_LONG" in {i.code for i in PC.build_plan(raw, d, rules).issues}
+
+
+def test_resolve_edit_nests_the_title_card(raw, rules):
+    from cutroom import resolve_build as RB
+
+    data = PC.build_plan(raw, titled(), rules).model_dump(mode="json")
+    proj = _Project()
+    done = RB.build_edit_timeline(proj, data, object(), "ep v2", title_item=object())
+    assert done["title"] and len(proj.tls[0].items) == len(data["segments"]) + 1
+    assert RB.check_edit_timeline(proj, data, "ep v2") == []
+    # the sped piece after the card got its speed, not the card
+    assert proj.tls[0].items[1].speed == 100.0 and proj.tls[0].items[3].speed == 800.0

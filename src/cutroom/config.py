@@ -188,8 +188,18 @@ class PacingRules(_Cfg):
         return self
 
 
+class TitleCardRules(_Cfg):
+    """The series title card: a Resolve timeline template (DRT) whose text is set per video."""
+
+    template: str = "cutroom/templates/zerocontext-title.drt"
+    text_tool: str = "LargeText"  # the Text+ tool in the template whose text changes
+    seconds: float = Field(default=6.306, gt=0)  # 189 frames at 29.97
+    max_chars: int = 34
+
+
 class LongformRules(_Cfg):
     pacing: PacingRules = Field(default_factory=PacingRules)
+    title_card: TitleCardRules = Field(default_factory=TitleCardRules)
 
 
 class BrandRules(_Cfg):

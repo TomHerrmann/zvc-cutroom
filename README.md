@@ -149,6 +149,15 @@ segment, resumable in pieces). `cutroom resolve-edit` builds the same plan as a 
 timeline: real speed changes on the clips (pitch-corrected), sped pieces coloured by speed,
 and the SRT on a subtitle track, read back and checked against the plan.
 
+**Title card.** Every long-form video gets the series title card right after the hook. The card
+is the `zerocontext_template` project's timeline, exported once from Resolve as
+`cutroom/templates/zerocontext-title.drt` (background, glitch title, and its own projector and
+glitch sound tracks). Per video, the plan carries the line it follows and its text (Claude
+drafts "<series>: <short title>", at most 34 characters). `resolve-edit` imports the template
+as that video's own title timeline, sets the `LargeText` layer, and nests it in the edit, so
+the picture and every sound track stay in sync as one block. A Fusion title template can't
+carry sound, which is why it's a nested timeline. The SRT is shifted to make room for it.
+
 On 16mm Journey ep1, 17.9 minutes of source became a 7.6 minute cut: 6.1 minutes of talk and
 1.4 minutes of sped-up work standing in for 6.6 minutes of it, plus 7 seconds shown at real time. A frame-difference motion
 measure alone couldn't tell "standing still talking himself up" from slow hand work (both

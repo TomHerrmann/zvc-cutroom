@@ -145,3 +145,11 @@ longform:
     still_motion: 0.01
     still_min_seconds: 2.0
     sped_audio_volume: 0.5
+  # The series title card after the hook: the zerocontext-title template (background, glitch
+  # title and its own sound tracks, exported from Resolve as a timeline). Each video only
+  # changes the text of text_tool, e.g. "16mm Journey: First Light".
+  title_card:
+    template: cutroom/templates/zerocontext-title.drt   # under the Zero Vision Cinema folder
+    text_tool: LargeText
+    seconds: 6.306               # 189 frames at 29.97
+    max_chars: 34
