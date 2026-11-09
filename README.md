@@ -158,6 +158,20 @@ as that video's own title timeline, sets the `LargeText` layer, and nests it in 
 the picture and every sound track stay in sync as one block. A Fusion title template can't
 carry sound, which is why it's a nested timeline. The SRT is shifted to make room for it.
 
+**Music under the sped-up work.** `cutroom music edit_plan.json --match cut.mp4` lays a music
+bed under the sped parts. Sped pieces are grouped into runs; a real-time line of up to 8 seconds
+between two sped pieces keeps the music going, ducked 12 dB, while longer talking, the title
+card or the end of the video ends the run. Each run fades in over 0.4 s at its first sped piece
+and tails out over 1.2 s after its last. The tracks play as one continuous playlist that only
+advances while music is audible, so each run picks up where the last one stopped. `--match`
+measures the review render's loudness and normalises the music to it, so the bed sits 5 dB under
+the talking whatever the mic gain was. It writes `music_bed.wav` (no title card, like the review
+render; `render.sh concat` mixes it into `cut-music.mp4`) and `music_bed_titled.wav` for
+`resolve-edit --music`, which lays it on its own "Music" track from the first frame. Tracks are
+listed in the brand rules (`longform.music.tracks`) with their source page and license, and only
+music free for commercial use with no attribution goes there; `music_credits.md` records them
+next to every bed.
+
 On 16mm Journey ep1, 17.9 minutes of source became a 7.6 minute cut: 6.1 minutes of talk and
 1.4 minutes of sped-up work standing in for 6.6 minutes of it, plus 7 seconds shown at real time. A frame-difference motion
 measure alone couldn't tell "standing still talking himself up" from slow hand work (both
@@ -200,8 +214,12 @@ cutroom propose data/cronov-e01/transcript.aligned.json --video data/cronov-e01/
     --audio data/cronov-e01/audio16k.wav --source episode.mp4 --about "a vlog, not a review"
 cutroom pace data/cronov-e01/transcript.aligned.json --audio data/cronov-e01/audio16k.wav \
     --frames proxy.mp4 --out ~/edits/cronov-e01 --render-source episode.mp4
+(cd ~/edits/cronov-e01 && ./render.sh && ./render.sh concat)       # review render: cut.mp4
+cutroom music ~/edits/cronov-e01/edit_plan.json --match ~/edits/cronov-e01/cut.mp4
+(cd ~/edits/cronov-e01 && ./render.sh concat)                      # + cut-music.mp4
 cutroom resolve-edit ~/edits/cronov-e01/edit_plan.json --source episode.mp4 \
-    --name "cronov-e01 v1" --srt ~/edits/cronov-e01/cut.srt
+    --name "cronov-e01 v1" --srt ~/edits/cronov-e01/cut.srt \
+    --music ~/edits/cronov-e01/music_bed_titled.wav
 cutroom validate clips/cronov-e01/ -t data/cronov-e01/transcript.aligned.json \
     --video data/cronov-e01/video.json
 cutroom queue --id cronov-e01

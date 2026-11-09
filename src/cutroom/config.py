@@ -197,9 +197,41 @@ class TitleCardRules(_Cfg):
     max_chars: int = 34
 
 
+class MusicTrack(_Cfg):
+    """A music track cleared for use: free for commercial use, no attribution required."""
+
+    file: str  # under the Zero Vision Cinema folder, or absolute
+    title: str
+    artist: str
+    source_url: str
+    license: str
+    license_url: str | None = None
+
+
+class MusicRules(_Cfg):
+    """The music bed under sped-up work.
+
+    Each track is first loudness-normalised to the cut's own loudness (`cutroom music --match`
+    measures it from the review render; `track_lufs` is the fallback), so the levels below are
+    relative to the talking whatever the mic gain was that day.
+    """
+
+    tracks: list[MusicTrack] = Field(default_factory=list)
+    track_lufs: float = -20.0
+    bed_db: float = Field(default=-5.0, le=0)  # under sped pieces
+    duck_db: float = Field(default=-12.0, le=0)  # further down under real-time pieces in a run
+    # Real-time pieces up to this long between two sped pieces keep the music going, ducked.
+    merge_gap_seconds: float = Field(default=8.0, ge=0)
+    fade_in_seconds: float = Field(default=0.4, ge=0)
+    fade_out_seconds: float = Field(default=1.2, ge=0)
+    duck_ramp_seconds: float = Field(default=0.25, ge=0)
+    crossfade_seconds: float = Field(default=2.0, ge=0)  # between tracks in the playlist
+
+
 class LongformRules(_Cfg):
     pacing: PacingRules = Field(default_factory=PacingRules)
     title_card: TitleCardRules = Field(default_factory=TitleCardRules)
+    music: MusicRules = Field(default_factory=MusicRules)
 
 
 class BrandRules(_Cfg):

@@ -22,7 +22,8 @@ Flow:
      ever sped up or cut part-way.
 
 Rendering is a plain ffmpeg script (`render_script`): one file per segment, then a concat.
-Sped segments keep their sound pitch-corrected and lowered, so the room doesn't go dead.
+Sped segments keep their sound pitch-corrected and lowered, so the room doesn't go dead, and
+`music.py` lays a music bed under them.
 """
 
 from __future__ import annotations
@@ -565,6 +566,13 @@ def render_script(
         "  (cd segs && ls [0-9]*.mp4 | sort | sed \"s/^/file '/;s/$/'/\") > segs/list.txt",
         "  ffmpeg -nostdin -v error -y -f concat -safe 0 -i segs/list.txt -c copy "
         "-movflags +faststart cut.mp4",
+        "  # With a music bed from `cutroom music` (silent outside the sped runs), mix it under",
+        "  # the cut's own sound into cut-music.mp4.",
+        "  if [ -s music_bed.wav ]; then",
+        "    ffmpeg -nostdin -v error -y -i cut.mp4 -i music_bed.wav -filter_complex "
+        "'[0:a][1:a]amix=inputs=2:duration=first:normalize=0[a]' -map 0:v -map '[a]' "
+        "-c:v copy -c:a aac -b:a 192k -ar 48000 -movflags +faststart cut-music.mp4",
+        "  fi",
         "  exit 0",
         "fi",
         "FROM=${1:-0}; TO=${2:-99999}",

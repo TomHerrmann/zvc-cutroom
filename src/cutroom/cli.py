@@ -237,6 +237,12 @@ def resolve_edit_cmd(
     source: Path = typer.Option(..., exists=True, help="The raw source video."),
     name: str = typer.Option(..., help="Timeline name (replaced if it exists)."),
     srt: Path | None = typer.Option(None, exists=True, help="cut.srt for the subtitle track."),
+    music: Path | None = typer.Option(
+        None,
+        exists=True,
+        help="Music bed from `cutroom music` for its own track: music_bed_titled.wav when the "
+        "plan has a title card, else music_bed.wav.",
+    ),
     zvc_root: Path = typer.Option(ZVC_ROOT, help="Folder the title card template path is under."),
     rules_path: Path | None = RulesOpt,
 ) -> None:
@@ -257,14 +263,87 @@ def resolve_edit_cmd(
         item = resolve_build._pool_item(root, source.name)
         if item is None:
             (item,) = proj.GetMediaPool().ImportMedia([str(source)])
-        done = resolve_build.build_edit_timeline(proj, data, item, name, str(srt) if srt else None)
+        bed = None
+        if music:
+            bed = resolve_build._pool_item(root, music.name)
+            if bed is None:
+                (bed,) = proj.GetMediaPool().ImportMedia([str(music)])
+        title = None
+        card = data.get("title_card")
+        if card:
+            tc = load_rules(rules_path).longform.title_card
+            title = resolve_build.prepare_title(
+                proj, str(zvc_root / card["template"]), f"{name} title", tc.text_tool, card["text"]
+            )
+        done = resolve_build.build_edit_timeline(
+            proj, data, item, name, str(srt) if srt else None, title_item=title, music_item=bed
+        )
         problems = resolve_build.check_edit_timeline(proj, data, name)
         r.record.extra = {"built": done, "problems": problems}
-    console.print(f"[green]built[/] {done['name']}: {done['pieces']} pieces, {done['sped']} sped")
+    console.print(
+        f"[green]built[/] {done['name']}: {done['pieces']} pieces, {done['sped']} sped"
+        + (", title card" if done["title"] else "")
+        + (", music" if done["music"] else "")
+    )
     for p in problems:
         console.print(f"[red]check failed[/] {p}")
     if problems:
         raise typer.Exit(1)
+
+
+@app.command("music")
+def music_cmd(
+    plan: Path = typer.Argument(..., exists=True, help="edit_plan.json from `cutroom pace`."),
+    out: Path | None = typer.Option(None, help="Folder for the bed (default: the plan's)."),
+    zvc_root: Path = typer.Option(ZVC_ROOT, help="Folder the music track paths are under."),
+    match: Path | None = typer.Option(
+        None,
+        exists=True,
+        help="The review render (cut.mp4): set the music level from its "
+        "loudness, so the bed sits under the talking.",
+    ),  # fmt: skip
+    rules_path: Path | None = RulesOpt,
+) -> None:
+    """Lay a music bed under the sped-up parts of a long-form edit.
+
+    Writes music_bed.wav for render.sh (no title card, like the review render) and, when the
+    plan has a title card, music_bed_titled.wav for `resolve-edit --music`. Each is the length
+    of the cut and silent outside the sped runs. The cue list and every track's source and
+    license go in music_bed*.json and music_credits.md beside them.
+    """
+    from . import music as M
+    from . import pacing as PC
+
+    rules = load_rules(rules_path)
+    mr = rules.longform.music
+    if not mr.tracks:
+        raise typer.BadParameter("no music tracks in the brand rules (longform.music.tracks)")
+    tracks = []
+    for t in mr.tracks:
+        f = Path(t.file).expanduser()
+        f = f if f.is_absolute() else zvc_root / f
+        if not f.exists():
+            raise typer.BadParameter(f"music track not found: {f}")
+        tracks.append((t, f))
+    if match:
+        mr = mr.model_copy(update={"track_lufs": M.measure_lufs(match)})
+        console.print(f"{match.name}: {mr.track_lufs:g} LUFS; music matched to it")
+    ep = PC.EditPlan.model_validate_json(plan.read_text())
+    out = out or plan.parent
+    variants = [("music_bed", False)] + ([("music_bed_titled", True)] if ep.title_card else [])
+    with run("music", rules.config_hash) as r:
+        done = [
+            M.bed_for_plan(ep, mr, tracks, out, include_title=titled, name=name)
+            for name, titled in variants
+        ]
+        r.record.n_items = done[0]["cues"]
+        r.record.extra = {"beds": done}
+    for d in done:
+        console.print(
+            f"[green]wrote[/] {d['wav']}: {d['cues']} music cues, {d['music_seconds']:.0f}s of "
+            f"music in {d['seconds'] / 60:.1f} min"
+        )
+    console.print(f"credits: {out / 'music_credits.md'}")
 
 
 @app.command("propose")
