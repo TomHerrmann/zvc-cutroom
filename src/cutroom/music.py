@@ -8,7 +8,8 @@ lowered, which on its own sounds thin. This module lays a music bed under it:
   2. `music_cues` groups back-to-back sped pieces into runs; music is for the sped-up parts
      only, so by default any talking ends a run (`merge_gap_seconds` can keep it going, ducked,
      under short lines). Each run is a list of (time, dB) points: a short fade in at its first
-     sped piece and a fade out that is silent by the end of its last one.
+     sped piece and a long fade out that finishes just after its last one. A run that is too
+     short in total (`min_run_seconds`) gets no music: it would only pop on and off.
   3. `build_bed` decodes the tracks (loudness-normalised), plays them as one continuous
      playlist that only advances while a run is playing, so every run picks up where the last
      one stopped, multiplies by the envelope and writes one WAV the length of the cut. Silence
@@ -96,6 +97,7 @@ def music_cues(pieces: Sequence[Piece], rules: MusicRules) -> list[Cue]:
             held.append(p)
     if cur:
         runs.append(cur)
+    runs = [r for r in runs if sum(p.end - p.start for p in r if p.sped) >= rules.min_run_seconds]
     end_of_cut = pieces[-1].end if pieces else 0.0
     cues = []
     for run in runs:

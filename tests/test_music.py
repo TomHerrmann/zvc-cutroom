@@ -28,7 +28,8 @@ def plan(*segs, title_before=None):
 
 
 R = MusicRules(merge_gap_seconds=4, fade_in_seconds=0.5, fade_out_seconds=1.0,
-               tail_seconds=1.0, duck_ramp_seconds=0.25, bed_db=-4, duck_db=-12)  # fmt: skip
+               tail_seconds=1.0, duck_ramp_seconds=0.25, bed_db=-4, duck_db=-12,
+               min_run_seconds=0)  # fmt: skip
 
 
 def test_by_default_music_plays_only_under_sped_pieces():
@@ -36,15 +37,29 @@ def test_by_default_music_plays_only_under_sped_pieces():
         seg(0, 10),
         seg(10, 50, 8, "handwork"),  # 10-15
         seg(50, 66, 8, "repeat"),  # 15-17, straight after: same run
-        seg(66, 68),  # a 2s line ends the run
-        seg(68, 76, 4, "repeat"),  # 19-21
-        seg(76, 90),
+        seg(66, 70),  # a 4s line ends the run
+        seg(70, 102, 8, "repeat"),  # 21-25
+        seg(102, 110),
     )
     a, b = M.music_cues(M.layout(p), MusicRules())
-    assert a.segments == [1, 2] and (a.start, a.end) == (10.0, 17.0)
-    assert b.segments == [4] and (b.start, b.end) == (19.0, 21.0)
-    assert a.points[-1] == (17.0, M.SILENT_DB) and a.points[-2] == (16.6, -5)
+    assert a.segments == [1, 2] and b.segments == [4]
+    # a 1.5s fade that finishes 0.6s into the talking, not a hard stop
+    assert (a.start, a.end) == (10.0, 17.6)
+    assert a.points[-2] == (16.1, -5) and a.points[-1] == (17.6, M.SILENT_DB)
     assert all(db in (M.SILENT_DB, -5) for _, db in a.points + b.points)  # nothing ducked
+
+
+def test_brief_speed_ups_get_no_music():
+    p = plan(
+        seg(0, 10),
+        seg(10, 26, 8, "handwork"),  # 2s: too brief, no music
+        seg(26, 40),
+        seg(40, 72, 8, "repeat"),  # 4s: music
+        seg(72, 80),
+    )
+    (c,) = M.music_cues(M.layout(p), MusicRules())
+    assert c.segments == [3] and c.start == 26.0
+    assert M.music_cues(M.layout(p), MusicRules(min_run_seconds=0))[0].segments == [1]
 
 
 def test_layout_matches_render_sh_frame_rounding():
