@@ -260,10 +260,11 @@ def build_edit_timeline(
         tl.AddTrack("audio", "stereo")
         track = tl.GetTrackCount("audio")
         tl.SetTrackName("audio", track, "Music")
-        n = tl.GetEndFrame() - tl.GetStartFrame()
+        # Append the whole bed (it is already the cut's length). Resolve reads an audio-only
+        # WAV at 24 fps, so a startFrame/endFrame range in timeline frames lands too long.
         music = bool(mp.AppendToTimeline([{
-            "mediaPoolItem": music_item, "startFrame": 0, "endFrame": n - 1,
-            "mediaType": 2, "trackIndex": track, "recordFrame": tl.GetStartFrame(),
+            "mediaPoolItem": music_item, "mediaType": 2,
+            "trackIndex": track, "recordFrame": tl.GetStartFrame(),
         }]))  # fmt: skip
         if not music:
             raise RuntimeError("Resolve refused the music bed")
