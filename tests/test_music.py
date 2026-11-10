@@ -136,8 +136,15 @@ def test_resolve_puts_the_bed_on_its_own_track(raw, rules):  # noqa: F811
     assert RB.check_edit_timeline(proj, data, "ep m") == []
 
 
-def test_cli_music_writes_bed_credits_and_cues(tmp_path, raw, rules):  # noqa: F811
+def test_cli_music_writes_bed_credits_and_cues(tmp_path, raw, rules, monkeypatch):  # noqa: F811
     import yaml
+
+    def decode(path, lufs, sr=M.SR):  # the WAV as is: CI has no ffmpeg for loudnorm
+        with wave.open(str(path)) as w:
+            x = np.frombuffer(w.readframes(w.getnframes()), "<i2").reshape(-1, 2)
+        return (x / 32768).astype(np.float32)
+
+    monkeypatch.setattr(M, "decode", decode)
 
     from cutroom.config import DEFAULT_RULES_PATH
 
