@@ -243,6 +243,7 @@ class _Item:
 class _Timeline:
     def __init__(self, name):
         self.name, self.items, self.settings, self.subs = name, [], {}, []
+        self.audio_tracks, self.track_names, self.music = 1, {}, []
 
     def GetName(self):
         return self.name
@@ -257,7 +258,16 @@ class _Timeline:
     def GetEndFrame(self):
         return 108000 + sum(i.n for i in self.items)
 
-    def AddTrack(self, kind):
+    def AddTrack(self, kind, sub=None):
+        if kind == "audio":
+            self.audio_tracks += 1
+        return True
+
+    def GetTrackCount(self, kind):
+        return self.audio_tracks if kind == "audio" else 1
+
+    def SetTrackName(self, kind, i, name):
+        self.track_names[(kind, i)] = name
         return True
 
     def GetItemListInTrack(self, kind, i):
@@ -292,7 +302,9 @@ class _Project:
             def AppendToTimeline(self, infos):
                 tl = proj.current
                 for i in infos:
-                    if "startFrame" in i:
+                    if i.get("trackIndex", 1) != 1:  # the music bed on its own audio track
+                        tl.music.append(i)
+                    elif "startFrame" in i:
                         tl.items.append(
                             _Item(tl, tl.GetEndFrame(), i["endFrame"] - i["startFrame"])
                         )

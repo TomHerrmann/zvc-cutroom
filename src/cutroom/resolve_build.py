@@ -187,6 +187,7 @@ def build_edit_timeline(
     height: int = 2160,
     sped_volume_db: float = -6.0,
     title_item: Any | None = None,
+    music_item: Any | None = None,
 ) -> dict:
     """Build a long-form edit (`pacing.EditPlan` as a dict) as one 16:9 timeline.
 
@@ -198,6 +199,10 @@ def build_edit_timeline(
     With the plan's title card and `title_item` (the per-video title timeline from
     `prepare_title`), the title plays as a nested timeline before its segment, so its video
     and every sound track stay in sync as one block.
+
+    `music_item` is the music bed from `cutroom music` (built with the title card included when
+    there is one): one WAV the length of the cut, silent outside the sped runs, laid on its own
+    audio track from the first frame.
     """
     mp = project.GetMediaPool()
     old = _timelines(project).get(name)
@@ -239,6 +244,18 @@ def build_edit_timeline(
             v.SetClipColor(color)
             a.SetClipColor(color)
         sped += 1
+    music = False
+    if music_item is not None:
+        tl.AddTrack("audio", "stereo")
+        track = tl.GetTrackCount("audio")
+        tl.SetTrackName("audio", track, "Music")
+        n = tl.GetEndFrame() - tl.GetStartFrame()
+        music = bool(mp.AppendToTimeline([{
+            "mediaPoolItem": music_item, "startFrame": 0, "endFrame": n - 1,
+            "mediaType": 2, "trackIndex": track, "recordFrame": tl.GetStartFrame(),
+        }]))  # fmt: skip
+        if not music:
+            raise RuntimeError("Resolve refused the music bed")
     subs = 0
     if srt:
         stem = srt.rsplit("/", 1)[-1].rsplit(".", 1)[0]
@@ -253,7 +270,8 @@ def build_edit_timeline(
             mp.AppendToTimeline([{"mediaPoolItem": imported[0], "recordFrame": tl.GetStartFrame()}])
             subs = len(tl.GetItemListInTrack("subtitle", 1) or [])
     return {"name": name, "pieces": len(segs), "sped": sped, "subtitles": subs,
-            "title": at is not None, "frames": tl.GetEndFrame() - tl.GetStartFrame()}  # fmt: skip
+            "title": at is not None, "music": music,
+            "frames": tl.GetEndFrame() - tl.GetStartFrame()}  # fmt: skip
 
 
 def prepare_title(project: Any, template: str, name: str, text_tool: str, text: str) -> Any:
