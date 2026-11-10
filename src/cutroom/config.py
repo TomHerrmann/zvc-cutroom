@@ -246,6 +246,10 @@ class MusicRules(_Cfg):
     # A run whose sped pieces add up to less than this gets no music: a bed that pops on and
     # off around a brief speed-up is more distracting than none.
     min_run_seconds: float = Field(default=2.0, ge=0)
+    # The music fades in over the end of the line before a speed-up, so it is at full level
+    # when the speed-up starts; fade_in_seconds is the fallback where there is no line to lead
+    # in over (the start of the video, straight after the title card).
+    lead_in_seconds: float = Field(default=1.2, ge=0)
     fade_in_seconds: float = Field(default=0.25, ge=0)
     # Long enough that the music eases out instead of stopping hard.
     fade_out_seconds: float = Field(default=1.2, ge=0)

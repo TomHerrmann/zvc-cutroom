@@ -29,7 +29,7 @@ def plan(*segs, title_before=None):
 
 R = MusicRules(merge_gap_seconds=4, fade_in_seconds=0.5, fade_out_seconds=1.0,
                tail_seconds=1.0, duck_ramp_seconds=0.25, bed_db=-4, duck_db=-12,
-               min_run_seconds=0)  # fmt: skip
+               min_run_seconds=0, lead_in_seconds=0)  # fmt: skip
 
 
 def test_by_default_music_plays_only_under_sped_pieces():
@@ -43,8 +43,10 @@ def test_by_default_music_plays_only_under_sped_pieces():
     )
     a, b = M.music_cues(M.layout(p), MusicRules())
     assert a.segments == [1, 2] and b.segments == [4]
+    # it fades in over the last 1.2s of the line before, at full level when the speed-up starts
+    assert a.points[:2] == [(8.8, M.SILENT_DB), (10.0, -5)]
     # full level to the end of the speed-up, then a 1.2s fade into the talking
-    assert (a.start, a.end) == (10.0, 18.2)
+    assert (a.start, a.end) == (8.8, 18.2)
     assert a.points[-2] == (17.0, -5) and a.points[-1] == (18.2, M.SILENT_DB)
     assert all(db in (M.SILENT_DB, -5) for _, db in a.points + b.points)  # nothing ducked
 
@@ -58,7 +60,7 @@ def test_brief_speed_ups_get_no_music():
         seg(72, 80),
     )
     (c,) = M.music_cues(M.layout(p), MusicRules())
-    assert c.segments == [3] and c.start == 29.5
+    assert c.segments == [3] and c.start == 28.3
     assert M.music_cues(M.layout(p), MusicRules(min_run_seconds=0))[0].segments == [1]
 
 
@@ -95,6 +97,15 @@ def test_short_lines_between_sped_pieces_keep_the_music_going_ducked():
     env = M.envelope(a, 1000)
     assert env[0] == 0 and env[-1] < 0.02
     assert env[3000] == pytest.approx(10 ** (-4 / 20)) and env[6000] == pytest.approx(10**-0.8)
+
+
+def test_lead_in_never_reaches_into_the_title_card_or_the_previous_cue():
+    p = plan(seg(0, 10), seg(10, 50, 8, "handwork"), title_before=1)
+    (c,) = M.music_cues(M.layout(p), MusicRules())
+    assert c.start == 16.0 and c.points[1] == (16.25, -5)  # card ends at 16: plain fade in
+    p = plan(seg(0, 10), seg(10, 50, 8, "handwork"), seg(50, 52), seg(52, 84, 8, "repeat"))
+    a, b = M.music_cues(M.layout(p), MusicRules())
+    assert b.start == a.end == 16.2 and b.points[1] == (17.0, -5)
 
 
 def test_title_card_and_end_of_video_cut_the_fade_short():
