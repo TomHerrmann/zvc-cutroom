@@ -245,7 +245,7 @@ class MusicRules(_Cfg):
     merge_gap_seconds: float = Field(default=0.0, ge=0)
     # A run whose sped pieces add up to less than this gets no music: a bed that pops on and
     # off around a brief speed-up is more distracting than none.
-    min_run_seconds: float = Field(default=3.5, ge=0)
+    min_run_seconds: float = Field(default=2.0, ge=0)
     fade_in_seconds: float = Field(default=0.25, ge=0)
     # Long enough that the music eases out instead of stopping hard.
     fade_out_seconds: float = Field(default=1.5, ge=0)

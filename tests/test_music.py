@@ -52,13 +52,13 @@ def test_by_default_music_plays_only_under_sped_pieces():
 def test_brief_speed_ups_get_no_music():
     p = plan(
         seg(0, 10),
-        seg(10, 26, 8, "handwork"),  # 2s: too brief, no music
-        seg(26, 40),
-        seg(40, 72, 8, "repeat"),  # 4s: music
+        seg(10, 22, 8, "handwork"),  # 1.5s: too brief, no music
+        seg(22, 40),
+        seg(40, 56, 8, "repeat"),  # 2s: music
         seg(72, 80),
     )
     (c,) = M.music_cues(M.layout(p), MusicRules())
-    assert c.segments == [3] and c.start == 26.0
+    assert c.segments == [3] and c.start == 29.5
     assert M.music_cues(M.layout(p), MusicRules(min_run_seconds=0))[0].segments == [1]
 
 
