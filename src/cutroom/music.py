@@ -7,8 +7,10 @@ lowered, which on its own sounds thin. This module lays a music bed under it:
      way `render_script` cuts them, with the title card as its own piece when it is included.
   2. `music_cues` groups back-to-back sped pieces into runs; music is for the sped-up parts
      only, so by default any talking ends a run (`merge_gap_seconds` can keep it going, ducked,
-     under short lines). Each run is a list of (time, dB) points: a short fade in at its first
-     sped piece and a fade out that is silent by the end of its last one.
+     under short lines). Each run is a list of (time, dB) points: a fade in over the end of the
+     line before its first sped piece and a fade out that starts once its last one ends, so the
+     music leads out of and back into the talking. A run that is too short in total
+     (`min_run_seconds`) gets no music: it would only pop on and off.
   3. `build_bed` decodes the tracks (loudness-normalised), plays them as one continuous
      playlist that only advances while a run is playing, so every run picks up where the last
      one stopped, multiplies by the envelope and writes one WAV the length of the cut. Silence
@@ -96,14 +98,21 @@ def music_cues(pieces: Sequence[Piece], rules: MusicRules) -> list[Cue]:
             held.append(p)
     if cur:
         runs.append(cur)
+    runs = [r for r in runs if sum(p.end - p.start for p in r if p.sped) >= rules.min_run_seconds]
     end_of_cut = pieces[-1].end if pieces else 0.0
-    cues = []
+    cues: list[Cue] = []
     for run in runs:
-        start, last = run[0].start, run[-1].end
+        first, last = run[0].start, run[-1].end
         nxt = [p.start for p in pieces if p.kind == "title" and p.start >= last]
         stop = min([last + rules.tail_seconds, end_of_cut, *nxt])
         bed, duck = rules.bed_db, rules.bed_db + rules.duck_db
-        pts = [(start, SILENT_DB), (min(start + rules.fade_in_seconds, last), bed)]
+        # Lead in over the line before, never into a title card or the previous cue.
+        prev = [p.end for p in pieces if p.kind == "title" and p.end <= first]
+        start = max([first - rules.lead_in_seconds, 0.0, *prev, *(c.end for c in cues[-1:])])
+        if start < first:
+            pts = [(start, SILENT_DB), (first, bed)]
+        else:
+            pts = [(first, SILENT_DB), (min(first + rules.fade_in_seconds, last), bed)]
         for p in run[1:]:
             if p.sped == (pts[-1][1] == bed):
                 continue

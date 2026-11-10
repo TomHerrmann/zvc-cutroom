@@ -243,11 +243,20 @@ class MusicRules(_Cfg):
     # Music is only for sped-up parts: by default any real-time piece (talking) ends the run.
     # Raise this to keep the music going, ducked, under lines up to this long between sped pieces.
     merge_gap_seconds: float = Field(default=0.0, ge=0)
+    # A run whose sped pieces add up to less than this gets no music: a bed that pops on and
+    # off around a brief speed-up is more distracting than none.
+    min_run_seconds: float = Field(default=2.0, ge=0)
+    # The music fades in over the end of the line before a speed-up, so it is at full level
+    # when the speed-up starts; fade_in_seconds is the fallback where there is no line to lead
+    # in over (the start of the video, straight after the title card).
+    lead_in_seconds: float = Field(default=1.2, ge=0)
     fade_in_seconds: float = Field(default=0.25, ge=0)
-    fade_out_seconds: float = Field(default=0.4, ge=0)
-    # How far the fade-out may run past the last sped piece; 0 means it is silent by the time
-    # the talking starts.
-    tail_seconds: float = Field(default=0.0, ge=0)
+    # Long enough that the music eases out instead of stopping hard.
+    fade_out_seconds: float = Field(default=1.2, ge=0)
+    # How far the fade-out may run past the last sped piece, under the start of the talking.
+    # Equal to the fade, the music holds through the whole speed-up and fades once it ends;
+    # 0 means it is silent by the time the talking starts.
+    tail_seconds: float = Field(default=1.2, ge=0)
     duck_ramp_seconds: float = Field(default=0.25, ge=0)
     crossfade_seconds: float = Field(default=2.0, ge=0)  # between tracks in the playlist
 
