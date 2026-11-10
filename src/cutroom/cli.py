@@ -228,7 +228,8 @@ def resolve_build_cmd(
         raise typer.Exit(1)
 
 
-ZVC_ROOT = Path.home() / "Zero Vision Cinema"
+# Raw assets, cutroom work folders and media live in the backed-up cloud drive.
+ZVC_ROOT = Path.home() / "Cloud-Drive" / "zero-vision-cinema"
 
 
 @app.command("resolve-edit")

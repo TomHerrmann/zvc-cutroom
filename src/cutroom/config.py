@@ -200,7 +200,7 @@ class TitleCardRules(_Cfg):
 class MusicTrack(_Cfg):
     """A music track cleared for use: free for commercial use, no attribution required."""
 
-    file: str  # under the Zero Vision Cinema folder, or absolute
+    file: str  # under ~/Cloud-Drive/zero-vision-cinema, or absolute
     title: str
     artist: str
     source_url: str

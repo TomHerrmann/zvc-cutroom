@@ -149,7 +149,18 @@ longform:
   # title and its own sound tracks, exported from Resolve as a timeline). Each video only
   # changes the text of text_tool, e.g. "16mm Journey: First Light".
   title_card:
-    template: cutroom/templates/zerocontext-title.drt   # under the Zero Vision Cinema folder
+    template: cutroom/templates/zerocontext-title.drt   # under ~/Cloud-Drive/zero-vision-cinema
     text_tool: LargeText
     seconds: 6.306               # 189 frames at 29.97
     max_chars: 34
+  # Music under the sped-up parts (`cutroom music`). Only tracks free for commercial use with no
+  # attribution required; record where each came from. Brand vibes that fit: surf rock, 80s
+  # darksynth, moody trip-hop (not ragtime, disco or cheerful pop-funk).
+  music:
+    tracks:
+      - file: assets/raw/audio/pixabay-music/tunetank-retro-surf-rock-348237.mp3
+        title: Retro Surf Rock
+        artist: Tunetank
+        source_url: https://pixabay.com/music/hard-rock-retro-surf-rock-348237/
+        license: Pixabay Content License
+        license_url: https://pixabay.com/service/license-summary/
