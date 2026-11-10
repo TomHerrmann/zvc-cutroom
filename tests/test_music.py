@@ -132,7 +132,7 @@ def test_resolve_puts_the_bed_on_its_own_track(raw, rules):  # noqa: F811
     assert done["music"] and tl.track_names[("audio", 2)] == "Music"
     (m,) = tl.music
     assert m["trackIndex"] == 2 and m["mediaType"] == 2 and m["recordFrame"] == 108000
-    assert m["endFrame"] == done["frames"] - 1
+    assert "startFrame" not in m and "endFrame" not in m  # whole clip: Resolve sees WAVs at 24fps
     assert RB.check_edit_timeline(proj, data, "ep m") == []
 
 
