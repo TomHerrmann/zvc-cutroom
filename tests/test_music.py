@@ -43,9 +43,9 @@ def test_by_default_music_plays_only_under_sped_pieces():
     )
     a, b = M.music_cues(M.layout(p), MusicRules())
     assert a.segments == [1, 2] and b.segments == [4]
-    # a 1.5s fade that finishes 0.6s into the talking, not a hard stop
-    assert (a.start, a.end) == (10.0, 17.6)
-    assert a.points[-2] == (16.1, -5) and a.points[-1] == (17.6, M.SILENT_DB)
+    # full level to the end of the speed-up, then a 1.2s fade into the talking
+    assert (a.start, a.end) == (10.0, 18.2)
+    assert a.points[-2] == (17.0, -5) and a.points[-1] == (18.2, M.SILENT_DB)
     assert all(db in (M.SILENT_DB, -5) for _, db in a.points + b.points)  # nothing ducked
 
 

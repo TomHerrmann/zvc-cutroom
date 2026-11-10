@@ -8,7 +8,7 @@ lowered, which on its own sounds thin. This module lays a music bed under it:
   2. `music_cues` groups back-to-back sped pieces into runs; music is for the sped-up parts
      only, so by default any talking ends a run (`merge_gap_seconds` can keep it going, ducked,
      under short lines). Each run is a list of (time, dB) points: a short fade in at its first
-     sped piece and a long fade out that finishes just after its last one. A run that is too
+     sped piece and a fade out that starts once its last one ends. A run that is too
      short in total (`min_run_seconds`) gets no music: it would only pop on and off.
   3. `build_bed` decodes the tracks (loudness-normalised), plays them as one continuous
      playlist that only advances while a run is playing, so every run picks up where the last

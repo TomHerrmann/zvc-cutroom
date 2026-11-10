@@ -248,10 +248,11 @@ class MusicRules(_Cfg):
     min_run_seconds: float = Field(default=2.0, ge=0)
     fade_in_seconds: float = Field(default=0.25, ge=0)
     # Long enough that the music eases out instead of stopping hard.
-    fade_out_seconds: float = Field(default=1.5, ge=0)
-    # How far the fade-out may run past the last sped piece, under the start of the talking;
+    fade_out_seconds: float = Field(default=1.2, ge=0)
+    # How far the fade-out may run past the last sped piece, under the start of the talking.
+    # Equal to the fade, the music holds through the whole speed-up and fades once it ends;
     # 0 means it is silent by the time the talking starts.
-    tail_seconds: float = Field(default=0.6, ge=0)
+    tail_seconds: float = Field(default=1.2, ge=0)
     duck_ramp_seconds: float = Field(default=0.25, ge=0)
     crossfade_seconds: float = Field(default=2.0, ge=0)  # between tracks in the playlist
 
