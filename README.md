@@ -158,6 +158,13 @@ as that video's own title timeline, sets the `LargeText` layer, and nests it in 
 the picture and every sound track stay in sync as one block. A Fusion title template can't
 carry sound, which is why it's a nested timeline. The SRT is shifted to make room for it.
 
+**Timeline names.** Resolve timelines follow one convention (`timelines` in the brand rules).
+The subject is `<Movie Title> Review` for a review or `<series>-ep<N>` for a series episode:
+`Breeder Review long v1` / `16mm-journey-ep1 long v2` for the long-form edit (the version is K
+from the plan's `longform-vK` folder), `… long v2 title` for its nested title card, and
+`Breeder Review ebay-gamble` / `16mm-journey-ep1 ebay-gamble` for vertical clips. Pass
+`--subject` to `resolve-edit` and `resolve-build`; `--name` still overrides it.
+
 **Music under the sped-up work.** `cutroom music edit_plan.json --match cut.mp4` lays a music
 bed under the sped parts, and only there: back-to-back sped pieces share one run, and any talking
 ends it. Each run fades in over 0.25 s and is silent again by the end of its last sped piece
@@ -212,19 +219,20 @@ cutroom align data/cronov-e01/transcript.reviewed.json --audio data/cronov-e01/a
 cutroom propose data/cronov-e01/transcript.aligned.json --video data/cronov-e01/video.json \
     --audio data/cronov-e01/audio16k.wav --source episode.mp4 --about "a vlog, not a review"
 cutroom pace data/cronov-e01/transcript.aligned.json --audio data/cronov-e01/audio16k.wav \
-    --frames proxy.mp4 --out ~/edits/cronov-e01 --render-source episode.mp4
-(cd ~/edits/cronov-e01 && ./render.sh && ./render.sh concat)       # review render: cut.mp4
-cutroom music ~/edits/cronov-e01/edit_plan.json --match ~/edits/cronov-e01/cut.mp4
-(cd ~/edits/cronov-e01 && ./render.sh concat)                      # + cut-music.mp4
-cutroom resolve-edit ~/edits/cronov-e01/edit_plan.json --source episode.mp4 \
-    --name "cronov-e01 v1" --srt ~/edits/cronov-e01/cut.srt \
-    --music ~/edits/cronov-e01/music_bed_titled.wav
+    --frames proxy.mp4 --out ~/edits/cronov-e01/longform-v1 --render-source episode.mp4
+(cd ~/edits/cronov-e01/longform-v1 && ./render.sh && ./render.sh concat)       # review render: cut.mp4
+cutroom music ~/edits/cronov-e01/longform-v1/edit_plan.json --match ~/edits/cronov-e01/longform-v1/cut.mp4
+(cd ~/edits/cronov-e01/longform-v1 && ./render.sh concat)                      # + cut-music.mp4
+cutroom resolve-edit ~/edits/cronov-e01/longform-v1/edit_plan.json --source episode.mp4 \
+    --subject "Cronos Review" --srt ~/edits/cronov-e01/longform-v1/cut.srt \
+    --music ~/edits/cronov-e01/longform-v1/music_bed_titled.wav
 cutroom validate clips/cronov-e01/ -t data/cronov-e01/transcript.aligned.json \
     --video data/cronov-e01/video.json
 cutroom queue --id cronov-e01
 cutroom export --id cronov-e01 -t data/cronov-e01/transcript.aligned.json --out ~/resolve/cronov-e01
 cutroom captions ~/resolve/cronov-e01/plan.json --fonts fonts
-cutroom resolve-build ~/resolve/cronov-e01/plan.json --source episode.mp4 --project cutroom
+cutroom resolve-build ~/resolve/cronov-e01/plan.json --source episode.mp4 --project cutroom \
+    --subject "Cronos Review"
 cutroom review cronov-e01 v1-verdict post --note "clean argument, strong hook"
 cutroom eval evals/sets/synthetic_smoke
 cutroom runs

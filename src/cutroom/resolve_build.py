@@ -53,12 +53,13 @@ def build_clip(
     base_dir: Path,
     reframe: bool = True,
     wait: Callable[[float], None] = time.sleep,
+    name: str | None = None,
 ) -> dict:
-    """Build one clip timeline. Returns what was placed, for logging and checks."""
+    """Build one clip timeline (named `name`, else the clip id). Returns what was placed."""
     mp = project.GetMediaPool()
     root = mp.GetRootFolder()
     mp.SetCurrentFolder(root)
-    cid = plan_entry["id"]
+    cid = name or plan_entry["id"]
 
     old = _timelines(project).get(cid)
     if old is not None:
@@ -130,7 +131,12 @@ def build_clip(
 
 
 def build_all(
-    resolve: Any, plan_path: Path, source_path: Path, project_name: str | None = None, **kw: Any
+    resolve: Any,
+    plan_path: Path,
+    source_path: Path,
+    project_name: str | None = None,
+    names: Callable[[str], str] | None = None,
+    **kw: Any,
 ) -> list[dict]:
     pm = resolve.GetProjectManager()
     project = pm.LoadProject(project_name) if project_name else pm.GetCurrentProject()
@@ -142,16 +148,21 @@ def build_all(
     root = mp.GetRootFolder()
     source = _pool_item(root, source_path.name) or mp.ImportMedia([str(source_path)])[0]
     plan = json.loads(plan_path.read_text())
-    done = [build_clip(project, entry, source, plan_path.parent, **kw) for entry in plan]
+    done = [
+        build_clip(project, entry, source, plan_path.parent,
+                   name=names(entry["id"]) if names else None, **kw)
+        for entry in plan
+    ]  # fmt: skip
     pm.SaveProject()
     return done
 
 
-def check_clip(project: Any, plan_entry: dict) -> list[str]:
+def check_clip(project: Any, plan_entry: dict, name: str | None = None) -> list[str]:
     """Read a built timeline back and compare it with the plan. Returns problems found."""
-    tl = _timelines(project).get(plan_entry["id"])
+    name = name or plan_entry["id"]
+    tl = _timelines(project).get(name)
     if tl is None:
-        return [f"{plan_entry['id']}: timeline missing"]
+        return [f"{name}: timeline missing"]
     start = tl.GetStartFrame()
     want = sum(round(b * FPS) - round(a * FPS) for a, b in plan_entry["segments"])
     problems = []
@@ -169,7 +180,7 @@ def check_clip(project: Any, plan_entry: dict) -> list[str]:
         at = want - card.get("overlap_frames", 0)
         if len(v3) != 1 or v3[0].GetStart() - start != at:
             problems.append(f"V3 end card should start at frame {at}")
-    return [f"{plan_entry['id']}: {p}" for p in problems]
+    return [f"{name}: {p}" for p in problems]
 
 
 # --------------------------------------------------------------------------- long-form edits

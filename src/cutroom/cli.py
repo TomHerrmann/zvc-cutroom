@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from pathlib import Path
 from statistics import median
@@ -201,6 +202,12 @@ def resolve_build_cmd(
     source: Path = typer.Option(..., exists=True, help="The long-form source video."),
     project: str | None = typer.Option(None, help="Resolve project (default: the open one)."),
     reframe: bool = typer.Option(True, help="Run Smart Reframe on every cut."),
+    subject: str | None = typer.Option(
+        None,
+        help='"<Movie Title> Review" or "<series>-ep<N>": timelines are named '
+        '"<subject> <clip id>" (brand rules: timelines.vertical). Default: the clip id.',
+    ),  # fmt: skip
+    rules_path: Path | None = RulesOpt,
 ) -> None:
     """Build every clip's timeline in DaVinci Resolve Studio, then check it against the plan."""
     from . import resolve_build
@@ -212,11 +219,16 @@ def resolve_build_cmd(
                       "with Resolve open and its Modules folder on PYTHONPATH.")  # fmt: skip
         raise typer.Exit(2) from e
     resolve = dvr.scriptapp("Resolve")
+    tn = load_rules(rules_path).timelines
+
+    def names(cid: str) -> str:
+        return tn.vertical_name(subject, cid) if subject else cid
+
     with run("resolve-build") as r:
-        done = resolve_build.build_all(resolve, plan, source, project, reframe=reframe)
+        done = resolve_build.build_all(resolve, plan, source, project, names=names, reframe=reframe)
         proj = resolve.GetProjectManager().GetCurrentProject()
         problems = [p for e in json.loads(plan.read_text())
-                    for p in resolve_build.check_clip(proj, e)]  # fmt: skip
+                    for p in resolve_build.check_clip(proj, e, names(e["id"]))]  # fmt: skip
         r.record.extra = {"built": done, "problems": problems}
     for d in done:
         console.print(
@@ -228,6 +240,12 @@ def resolve_build_cmd(
         raise typer.Exit(1)
 
 
+def edit_version(plan: Path) -> int:
+    """K from the folder an edit plan lives in (longform-vK), else 1."""
+    m = re.search(r"-v(\d+)$", plan.resolve().parent.name)
+    return int(m.group(1)) if m else 1
+
+
 # Raw assets, cutroom work folders and media live in the backed-up cloud drive.
 ZVC_ROOT = Path.home() / "Cloud-Drive" / "zero-vision-cinema"
 
@@ -236,7 +254,15 @@ ZVC_ROOT = Path.home() / "Cloud-Drive" / "zero-vision-cinema"
 def resolve_edit_cmd(
     plan: Path = typer.Argument(..., exists=True, help="edit_plan.json from `cutroom pace`."),
     source: Path = typer.Option(..., exists=True, help="The raw source video."),
-    name: str = typer.Option(..., help="Timeline name (replaced if it exists)."),
+    subject: str | None = typer.Option(
+        None,
+        help='"<Movie Title> Review" or "<series>-ep<N>": the timeline is named '
+        '"<subject> long v<version>" (brand rules: timelines.long).',
+    ),  # fmt: skip
+    version: int | None = typer.Option(
+        None, help="Edit version for the name (default: K from the plan's longform-vK folder)."
+    ),
+    name: str | None = typer.Option(None, help="Exact timeline name, instead of the convention."),
     srt: Path | None = typer.Option(None, exists=True, help="cut.srt for the subtitle track."),
     music: Path | None = typer.Option(
         None,
@@ -256,6 +282,11 @@ def resolve_edit_cmd(
         console.print("[red]Resolve scripting API not found.[/] Run this on the editing machine "
                       "with Resolve open and its Modules folder on PYTHONPATH.")  # fmt: skip
         raise typer.Exit(2) from e
+    rules = load_rules(rules_path)
+    if name is None:
+        if subject is None:
+            raise typer.BadParameter("give --subject (e.g. 'Breeder Review') or --name")
+        name = rules.timelines.long_name(subject, version or edit_version(plan))
     resolve = dvr.scriptapp("Resolve")
     proj = resolve.GetProjectManager().GetCurrentProject()
     data = json.loads(plan.read_text())
@@ -272,10 +303,11 @@ def resolve_edit_cmd(
         title = None
         card = data.get("title_card")
         if card:
-            tc = load_rules(rules_path).longform.title_card
+            tc = rules.longform.title_card
             title = resolve_build.prepare_title(
-                proj, str(zvc_root / card["template"]), f"{name} title", tc.text_tool, card["text"]
-            )
+                proj, str(zvc_root / card["template"]), rules.timelines.title_name(name),
+                tc.text_tool, card["text"],
+            )  # fmt: skip
         done = resolve_build.build_edit_timeline(
             proj, data, item, name, str(srt) if srt else None, title_item=title, music_item=bed
         )
