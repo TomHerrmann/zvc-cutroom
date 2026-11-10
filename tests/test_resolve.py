@@ -235,3 +235,26 @@ def test_overlay_render_command_and_failure(tmp_path):
 
     with pytest.raises(RuntimeError, match="No such filter"):
         render_overlays(plan, runner=bad)
+
+
+def test_timeline_names_follow_the_convention(tmp_path):
+    from cutroom.cli import edit_version
+    from cutroom.config import load_rules
+
+    tn = load_rules().timelines
+    assert tn.long_name("Breeder Review", 1) == "Breeder Review long v1"
+    assert tn.long_name("16mm-journey-ep1", 2) == "16mm-journey-ep1 long v2"
+    assert tn.title_name("16mm-journey-ep1 long v2") == "16mm-journey-ep1 long v2 title"
+    assert tn.vertical_name("Breeder Review", "ebay-gamble") == "Breeder Review ebay-gamble"
+    d = tmp_path / "longform-v3"
+    d.mkdir()
+    assert edit_version(d / "edit_plan.json") == 3
+    assert edit_version(tmp_path / "edit_plan.json") == 1
+
+
+def test_clip_timeline_can_take_a_conventional_name(tmp_path):
+    proj, source = Project(), PoolItem("source.mp4")
+    resolve_build.build_clip(proj, ENTRY, source, tmp_path, wait=lambda s: None,
+                             name="Breeder Review v1")  # fmt: skip
+    assert resolve_build.check_clip(proj, ENTRY, "Breeder Review v1") == []
+    assert resolve_build.check_clip(proj, ENTRY) == ["v1: timeline missing"]

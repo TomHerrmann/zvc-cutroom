@@ -188,6 +188,26 @@ class PacingRules(_Cfg):
         return self
 
 
+class TimelineNames(_Cfg):
+    """Resolve timeline names. `{subject}` is what the video is: "<Movie Title> Review" for a
+    review ("Breeder Review long v1") or "<series>-ep<N>" for a series ("16mm-journey-ep1 long
+    v2"); `{version}` is the edit's version (from its longform-vK folder);
+    `{clip}` a vertical clip's id; `{timeline}` the long-form timeline the title card nests in."""
+
+    long: str = "{subject} long v{version}"
+    vertical: str = "{subject} {clip}"
+    title: str = "{timeline} title"
+
+    def long_name(self, subject: str, version: int) -> str:
+        return self.long.format(subject=subject, version=version)
+
+    def vertical_name(self, subject: str, clip: str) -> str:
+        return self.vertical.format(subject=subject, clip=clip)
+
+    def title_name(self, timeline: str) -> str:
+        return self.title.format(timeline=timeline)
+
+
 class TitleCardRules(_Cfg):
     """The series title card: a Resolve timeline template (DRT) whose text is set per video."""
 
@@ -251,6 +271,7 @@ class BrandRules(_Cfg):
     end_card: EndCardRules | None = None
     proposals: ProposalRules = Field(default_factory=ProposalRules)
     longform: LongformRules = Field(default_factory=LongformRules)
+    timelines: TimelineNames = Field(default_factory=TimelineNames)
     # Set by load_rules; not part of the YAML.
     config_hash: str | None = None
 
