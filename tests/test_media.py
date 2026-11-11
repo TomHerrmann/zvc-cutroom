@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from cutroom.audio import Level
-from cutroom.captions import caption_groups, caption_text, write_ass
+from cutroom.captions import caption_groups, caption_text, merge_units, write_ass
 from cutroom.schemas import Segment, Transcript, Word
 
 
@@ -22,6 +22,20 @@ def test_caption_lines_follow_speech_and_fit():
     # the long pause.
     assert groups == [["A", "post-Roe"], ["psychosexual", "thriller."], ["Then", "more"]]
     assert caption_text("tension. Now, really?") == "tension Now really?"
+
+
+def test_a_number_and_its_unit_stay_one_word():
+    # 16mm Journey ep1: the aligner returned "16" and "millimeter" as two words, and the
+    # caption broke between them ("... 16" / "MM PROJECTOR").
+    words = [
+        W("a", 0.0, 0.1), W("Super", 0.1, 0.4), W("Slot-Load", 0.4, 0.9), W("16", 0.9, 1.2),
+        W("millimeter", 1.2, 1.7), W("projector.", 1.7, 2.2),
+    ]  # fmt: skip
+    merged = merge_units(words)
+    assert [w.text for w in merged] == ["a", "Super", "Slot-Load", "16mm", "projector."]
+    assert (merged[3].start, merged[3].end) == (0.9, 1.7)
+    assert [w.text for w in merge_units([W("16", 0, 1), W("MM.", 1, 2)])] == ["16MM."]
+    assert [w.text for w in merge_units([W("16", 0, 1), W("reels", 1, 2)])] == ["16", "reels"]
 
 
 def test_ass_highlights_the_spoken_word(rules, tmp_path):

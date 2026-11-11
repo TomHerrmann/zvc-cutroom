@@ -47,7 +47,10 @@ class HashtagRules(_Cfg):
 
 class RenderPreset(_Cfg):
     codec: str
-    target_bitrate_mbps: float
+    target_bitrate_mbps: float | None = None  # None: Resolve's automatic quality
+    profile: str | None = None
+    multi_pass: bool = False
+    audio_codec: str = "aac"
 
 
 class FormatRules(_Cfg):
@@ -115,6 +118,9 @@ class ProposalRules(_Cfg):
     max_segments: int = Field(default=3, ge=1)  # line ranges stitched into one clip
     max_repairs: int = Field(default=1, ge=0)  # rounds of "the checks said X, fix it"
     target_seconds: tuple[float, float] = (20.0, 45.0)  # sweet spot inside the format range
+    # Machine-proposed clip ids are "<prefix><slug>". "vert-" says what the clip is (16mm
+    # Journey ep1 used "auto-", which only said who made it).
+    clip_prefix: str = "vert-"
     cta: ProposalCTA = Field(default_factory=lambda: ProposalCTA(text="Follow Zero Vision Cinema"))
     # Ranking: weighted mean of the scores that are present.
     weights: dict[str, float] = Field(
@@ -262,6 +268,63 @@ class MusicRules(_Cfg):
     crossfade_seconds: float = Field(default=2.0, ge=0)  # between tracks in the playlist
 
 
+class GradeParams(_Cfg):
+    """One grade fix, built as a LUT by `cutroom lut` (see grade.py). Values are in DaVinci
+    Intermediate units; angles are degrees in the chroma plane (0 = toward red)."""
+
+    dr: float = 0.0  # white balance offsets, gated off the blacks
+    dg: float = 0.0
+    db: float = 0.0
+    exp: float = 0.0  # exposure offset, gated off the blacks
+    wb_lo: float = 0.08  # below this level the offsets fade to nothing
+    hc: float = 15.0  # skin band centre
+    hw: float = Field(default=16.0, gt=0)  # skin band width
+    hue: float = 0.0  # hue rotation in the skin band; must stay 0 (brand rule)
+    skin_sat: float = Field(default=0.0, ge=0, lt=1)  # share of skin saturation taken out
+    gsat: float = Field(default=1.0, gt=0)  # overall saturation
+    red_c: float = 8.0  # red band centre
+    red_w: float = Field(default=0.0, ge=0)  # red band width; 0 = no red handling
+    red_gsat: float | None = None  # saturation gain in the red band (None = gsat)
+    knee: float = Field(default=0.065, gt=0)  # reds stronger than this are compressed
+    knee_slope: float = Field(default=1.0, gt=0, le=1)
+    lift: float = Field(default=0.0, ge=0)  # shadow lift; 0 = true blacks
+    lift_to: float = Field(default=0.12, gt=0)
+
+
+class GradeRules(_Cfg):
+    """Grade fixes on a color group's post-clip node. Rules from Tom's notes on 16mm Journey
+    ep1: never shift his skin hue (keep the pink, only soften it), pull back only the hottest
+    reds, and keep true blacks."""
+
+    default: str | None = None
+    presets: dict[str, GradeParams] = Field(default_factory=dict)
+    allow_skin_hue_shift: bool = False
+    allow_lift: bool = False
+
+    @model_validator(mode="after")
+    def _brand_safe(self) -> GradeRules:
+        for name, p in self.presets.items():
+            if p.hue and not self.allow_skin_hue_shift:
+                raise ValueError(f"grade preset {name!r} shifts skin hue; keep hue at 0")
+            if p.lift and not self.allow_lift:
+                raise ValueError(f"grade preset {name!r} lifts the blacks; keep lift at 0")
+        if self.default is not None and self.default not in self.presets:
+            raise ValueError(f"default grade {self.default!r} is not a preset")
+        return self
+
+
+class DeliveryRules(_Cfg):
+    """Finishing and export, after the edit is approved."""
+
+    loudness_lufs: float = -14.0  # two-pass ffmpeg loudnorm on every final
+    true_peak_db: float = -1.5
+    loudness_range: float = 11.0
+    vertical_intro: str | None = None  # clip at the head of every short
+    vertical_intro_frames: int = Field(default=0, ge=0)
+    wide_intro: str | None = None  # None: the long-form opens on its own title card
+    ready_dir: str = "cutroom/{series}/ep{episode}/ready-to-post"
+
+
 class LongformRules(_Cfg):
     pacing: PacingRules = Field(default_factory=PacingRules)
     title_card: TitleCardRules = Field(default_factory=TitleCardRules)
@@ -282,6 +345,8 @@ class BrandRules(_Cfg):
     proposals: ProposalRules = Field(default_factory=ProposalRules)
     longform: LongformRules = Field(default_factory=LongformRules)
     timelines: TimelineNames = Field(default_factory=TimelineNames)
+    grade: GradeRules = Field(default_factory=GradeRules)
+    delivery: DeliveryRules = Field(default_factory=DeliveryRules)
     # Set by load_rules; not part of the YAML.
     config_hash: str | None = None
 

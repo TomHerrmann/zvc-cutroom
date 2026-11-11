@@ -43,9 +43,8 @@ formats:
     min_seconds: 15              # DRAFT
     max_seconds: 60              # DRAFT
     caption_max_chars: 2200
-    render:                      # DRAFT preset, used by the Resolve render step (milestone 3)
+    render:                      # what shipped on 16mm Journey ep1: H.264 MP4, automatic quality
       codec: h264
-      target_bitrate_mbps: 16
   wide:
     platform: youtube
     form: long
@@ -55,9 +54,11 @@ formats:
     min_seconds: 60              # DRAFT
     max_seconds: 14400
     caption_max_chars: 5000
-    render:                      # DRAFT preset
-      codec: h265
-      target_bitrate_mbps: 45
+    render:                      # what shipped on 16mm Journey ep1 (YouTube 4K upload)
+      codec: h264
+      target_bitrate_mbps: 50
+      profile: high
+      multi_pass: true
 
 # Subtitles come from DaVinci Resolve Studio's AI transcription, get an accuracy pass
 # from Claude, and go back into Resolve on the subtitle track.
@@ -108,6 +109,7 @@ proposals:
   count: 6
   max_segments: 3
   max_repairs: 1
+  clip_prefix: vert-             # clip ids are vert-<slug> (16mm Journey ep1 used auto-)
   target_seconds: [20, 45]       # DRAFT: inside the vertical 15-60s range
   cta:                           # every clip gets this overlay in its first seconds
     text: Follow Zero Vision Cinema
@@ -164,3 +166,38 @@ longform:
         source_url: https://pixabay.com/music/hard-rock-retro-surf-rock-348237/
         license: Pixabay Content License
         license_url: https://pixabay.com/service/license-summary/
+
+# Grade fixes on a color group's post-clip node (`cutroom lut`). From Tom's notes on 16mm
+# Journey ep1 (ten rounds, v9 to v9i): never shift his skin hue (keep the pink, soften it
+# only), no global saturation boost on reds plus a soft knee on the hottest ones (sunburn,
+# a red poster), true blacks (no lift; offsets gated off the shadows), cooling gentle.
+# The loader rejects a preset with hue or lift unless explicitly allowed below.
+grade:
+  default: talking-head-v9i
+  presets:
+    talking-head-v9i:            # shipped on 16mm Journey ep1, living-room studio
+      dr: -0.004
+      db: 0.0035
+      exp: 0.01
+      hc: 15
+      hw: 16
+      skin_sat: 0.22             # 0.294 read as "sunburnt"; 0.19 greyed him
+      gsat: 1.15
+      red_c: 8
+      red_w: 18
+      red_gsat: 1.0
+      knee: 0.075
+      knee_slope: 0.55           # 0.065 / 0.45 was too strong
+
+# Finishing, after Tom approves the edit. Every final is loudness-normalised (raw renders sit
+# around -33 LUFS): linear loudnorm for shorts, dynamic for the long-form. Shorts open on the
+# vertical ZVC intro; the long-form keeps its own title card (Tom prefers it to the glitch
+# intro). Social copy is drafted last, from the files in ready_dir.
+delivery:
+  loudness_lufs: -14.0
+  true_peak_db: -1.5
+  loudness_range: 11.0
+  vertical_intro: assets/complete/video/logos/social_intro_vert.mp4
+  vertical_intro_frames: 7
+  wide_intro: null
+  ready_dir: cutroom/{series}/ep{episode}/ready-to-post

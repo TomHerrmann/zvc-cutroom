@@ -123,7 +123,7 @@ def test_results_rank_passing_first_and_ids_stay_unique(transcript, video, rules
     )
     assert [r.passed for r in res] == [True, True, False]
     assert res[0].rank > res[1].rank
-    assert {r.clip.id for r in res[:2]} == {"auto-practical-effects", "auto-practical-effects-2"}
+    assert {r.clip.id for r in res[:2]} == {"vert-practical-effects", "vert-practical-effects-2"}
     assert res[2].clip is None
 
 
@@ -254,8 +254,8 @@ def test_cli_propose_from_draft_file(tmp_path, monkeypatch, transcript, video):
     assert res.exit_code == 0, res.output
     assert "COVER_NO_FACE" in res.output and "h1               -> no match" in res.output
     ids = {c.id for c in store.list(transcript.video_id)}
-    assert ids == {"h1", "auto-practical-effects"}
-    assert store.get(transcript.video_id, "auto-practical-effects").status == (
+    assert ids == {"h1", "vert-practical-effects"}
+    assert store.get(transcript.video_id, "vert-practical-effects").status == (
         ClipStatus.REJECTED_BY_VALIDATOR
     )
 

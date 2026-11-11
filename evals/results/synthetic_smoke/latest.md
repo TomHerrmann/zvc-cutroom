@@ -1,6 +1,6 @@
 # Eval: synthetic_smoke (SYNTHETIC fixture, not real ZVC data)
 
-Run 2026-11-02 21:00 UTC, commit `fa0fb20`, brand rules `07b914284b1f`.
+Run 2026-11-11 20:16 UTC, commit `3e94892`, brand rules `797ecf190e19`.
 
 | metric | value |
 |---|---|
