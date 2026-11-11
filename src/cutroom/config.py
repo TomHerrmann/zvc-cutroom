@@ -240,9 +240,10 @@ class MusicRules(_Cfg):
     track_lufs: float = -20.0
     bed_db: float = Field(default=-5.0, le=0)  # under sped pieces
     duck_db: float = Field(default=-12.0, le=0)  # further down under real-time pieces in a run
-    # Music is only for sped-up parts: by default any real-time piece (talking) ends the run.
-    # Raise this to keep the music going, ducked, under lines up to this long between sped pieces.
-    merge_gap_seconds: float = Field(default=0.0, ge=0)
+    # Music is only for sped-up parts, so talking ends the run. But over a short line the bed
+    # would fade out and straight back in (the 1.2s tail and 1.2s lead-in leave under ~1.6s of
+    # silence), which pumps. Under lines up to this long the music keeps going, ducked, instead.
+    merge_gap_seconds: float = Field(default=3.5, ge=0)
     # A run whose sped pieces add up to less than this gets no music: a bed that pops on and
     # off around a brief speed-up is more distracting than none.
     min_run_seconds: float = Field(default=2.0, ge=0)

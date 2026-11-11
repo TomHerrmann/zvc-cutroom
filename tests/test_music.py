@@ -104,8 +104,16 @@ def test_lead_in_never_reaches_into_the_title_card_or_the_previous_cue():
     (c,) = M.music_cues(M.layout(p), MusicRules())
     assert c.start == 16.0 and c.points[1] == (16.25, -5)  # card ends at 16: plain fade in
     p = plan(seg(0, 10), seg(10, 50, 8, "handwork"), seg(50, 52), seg(52, 84, 8, "repeat"))
-    a, b = M.music_cues(M.layout(p), MusicRules())
+    a, b = M.music_cues(M.layout(p), MusicRules(merge_gap_seconds=0))
     assert b.start == a.end == 16.2 and b.points[1] == (17.0, -5)
+
+
+def test_a_short_line_between_speed_ups_keeps_the_music_ducked_instead_of_dipping():
+    # a 2s line is shorter than fade-out tail + lead-in: the bed must not drop out and pop back
+    p = plan(seg(0, 10), seg(10, 50, 8, "handwork"), seg(50, 52), seg(52, 84, 8, "repeat"))
+    (c,) = M.music_cues(M.layout(p), MusicRules())
+    assert M.SILENT_DB not in [db for _, db in c.points[1:-1]]
+    assert min(db for _, db in c.points[1:-1]) == -17  # ducked under the line
 
 
 def test_title_card_and_end_of_video_cut_the_fade_short():
