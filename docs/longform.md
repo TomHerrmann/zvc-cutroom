@@ -1,6 +1,6 @@
 # Stretch phase: long-form 4K YouTube edits from raw footage
 
-**Status: planned, not started. Comes after milestones 1-5.**
+**Status: first episode shipped** (16mm Journey ep1, Nov 2026). Pacing, the Resolve edit, music and grade fixes are commands. The finishing steps, and what ep1 taught, are in [finishing.md](finishing.md). The plan below is the original draft.
 
 ## What it is
 

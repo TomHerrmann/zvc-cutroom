@@ -19,7 +19,7 @@ change, and a log of cost, latency and pass rates for every run.
 | 4. Approval queue + metrics feedback into the ranker | not started |
 | 5. Retrieval across the whole channel (RAG over every transcript, below) | not started |
 | 6. Portfolio polish: demo video, published eval results | not started |
-| Stretch: long-form 4K YouTube edits from raw footage, built with an agent ([plan](docs/longform.md)) | **first piece in review**: `cutroom pace` (talking kept, unspoken work sped up by kind, dead air cut), run on 16mm Journey ep1 from a saved draft |
+| Stretch: long-form 4K YouTube edits from raw footage, built with an agent ([plan](docs/longform.md)) | **first episode shipped**: 16mm Journey ep1 went from raw footage to a 4K YouTube cut plus three shorts, all scheduled. `pace`, `resolve-edit`, `music` and `lut` are commands; what the run taught about grade, captions, export and copy is in [docs/finishing.md](docs/finishing.md) |
 
 The only eval set today is `synthetic_smoke`: an invented transcript with one hand-written case
 per guardrail (24 cases). It proves the validators work; it says nothing yet about clip quality.
@@ -202,6 +202,7 @@ is why the kind comes from Claude looking at the frames rather than from a thres
 | `evals.py` | Eval sets of hand-labelled good and bad clips. Reports gate accuracy, good-pass rate, bad-catch rate, and whether bad clips were caught for the right reason. |
 | `runlog.py` | Appends a record per command to `runs/runs.jsonl`: latency, tokens, cost, pass/fail counts, failure codes, git sha, brand-rules hash. |
 | `store.py` | One JSON file per clip, with review status. |
+| `grade.py` | Grade fixes as a 3D LUT in DaVinci Intermediate log, for a color group's post-clip node (`cutroom lut`). Brand rules refuse a preset that shifts skin hue or lifts the blacks. |
 | `video.py` | Audio extraction, silence map and scene cuts for a source video (`video.json`). |
 | `render.py` | Exports approved vertical clips to `plan.json` + SRT + ASS, and renders the caption overlays. |
 | `resolve_build.py` | Builds one 1080x1920 timeline per clip through the Resolve scripting API: segments on V1 (Smart Reframed), captions on V2, end card on V3 over the last 12 frames. Reads each timeline back and checks it against the plan. |

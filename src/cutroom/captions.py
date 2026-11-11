@@ -16,6 +16,23 @@ from .schemas import Format, Transcript, Word
 
 _END = re.compile(r"[.?!]$")
 _SOFT = re.compile(r"[,;:]$")
+_NUMBER = re.compile(r"^\d+(?:[.,]\d+)?$")
+# Units the aligner can hand back as their own word ("16" "millimeter"). A line break
+# between them put "16" at the end of one caption and "MM" on the next (16mm Journey ep1).
+_UNIT = re.compile(r"^(mm|millimet(er|re)s?|cm|k|fps|p|x|%)[.,;:!?]?$", re.IGNORECASE)
+
+
+def merge_units(words: list[Word]) -> list[Word]:
+    """Join a number and the unit after it into one caption word: "16" "millimeter" -> "16mm".
+    One word can't be split across two lines, and the highlight covers it as one."""
+    out: list[Word] = []
+    for w in words:
+        if out and _NUMBER.match(out[-1].text) and _UNIT.match(w.text):
+            unit = re.sub(r"millimet(er|re)s?", "mm", w.text, flags=re.IGNORECASE)
+            prev = out.pop()
+            w = w.model_copy(update={"text": prev.text + unit, "start": prev.start})
+        out.append(w)
+    return out
 
 
 def caption_groups(
@@ -70,7 +87,7 @@ def write_ass(
     spec = rules.formats[Format.VERTICAL]
     style = sub.caption_style
     groups = caption_groups(
-        transcript.words(), sub.max_chars_per_line[Format.VERTICAL], style.max_words
+        merge_units(transcript.words()), sub.max_chars_per_line[Format.VERTICAL], style.max_words
     )
     text_c, hi_c = _ass_color(sub.text_color), _ass_color(sub.highlight_color)
     lines = [

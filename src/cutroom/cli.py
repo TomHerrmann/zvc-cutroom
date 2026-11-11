@@ -196,6 +196,41 @@ def captions_cmd(
         console.print(f"[green]wrote[/] {f}")
 
 
+@app.command("lut")
+def lut_cmd(
+    out: Path = typer.Argument(..., help="The .cube file to write."),
+    preset: str | None = typer.Option(None, help="Grade preset (default: grade.default)."),
+    set_: list[str] = typer.Option(
+        [], "--set", help="Override one value, e.g. --set skin_sat=0.2 (repeatable)."
+    ),
+    rules_path: Path | None = RulesOpt,
+) -> None:
+    """Build a grade fix as a 3D LUT for a color group's post-clip node.
+
+    Install it in Resolve's LUT/MCP folder, refresh the LUT list and set it on the group's
+    post-clip node 1. Writes the parameters next to the cube, so every version can be rebuilt.
+    """
+    from .config import GradeParams, GradeRules
+    from .grade import write_cube
+
+    rules = load_rules(rules_path)
+    name = preset or rules.grade.default
+    if not name or name not in rules.grade.presets:
+        raise typer.BadParameter(f"no grade preset {name!r}; have {sorted(rules.grade.presets)}")
+    values = rules.grade.presets[name].model_dump()
+    for item in set_:
+        key, _, val = item.partition("=")
+        if key not in GradeParams.model_fields or not val:
+            raise typer.BadParameter(f"--set {item!r}: expected <param>=<number>")
+        values[key] = float(val)
+    params = GradeParams.model_validate(values)
+    # The same brand checks as the rules file: no skin hue shift, no lifted blacks.
+    GradeRules.model_validate({**rules.grade.model_dump(), "presets": {name: params.model_dump()}})
+    write_cube(params, out)
+    out.with_suffix(".json").write_text(json.dumps(params.model_dump(exclude_none=True)))
+    console.print(f"[green]wrote[/] {out} ({name})")
+
+
 @app.command("resolve-build")
 def resolve_build_cmd(
     plan: Path = typer.Argument(..., exists=True),

@@ -409,7 +409,7 @@ def compile_draft(
     long_review = bool(video and video.long_review)
     card = rules.end_card.topic_title if rules.end_card and long_review else None
     clip = ClipProposal(
-        id=clip_id or f"auto-{_slug(m.slug)}",
+        id=clip_id or f"{rules.proposals.clip_prefix}{_slug(m.slug)}",
         video_id=transcript.video_id,
         segments=segments,
         hook=m.hook,
@@ -512,7 +512,7 @@ def propose(
     ids: dict[str, int] = {}
 
     def unique_id(slug: str) -> str:
-        base = f"auto-{_slug(slug)}"
+        base = f"{rules.proposals.clip_prefix}{_slug(slug)}"
         ids[base] = ids.get(base, 0) + 1
         return base if ids[base] == 1 else f"{base}-{ids[base]}"
 
@@ -532,7 +532,7 @@ def propose(
             m = by_slug.get(r.slug)
             if r.passed or m is None:
                 continue
-            cid = r.clip.id if r.clip else f"auto-{_slug(r.slug)}"
+            cid = r.clip.id if r.clip else f"{rules.proposals.clip_prefix}{_slug(r.slug)}"
             new = check_draft(m, transcript, rules, video, level, faces, spoilers, cid)
             new.attempts = round_no + 2
             results[i] = new
